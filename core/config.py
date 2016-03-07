@@ -3,7 +3,7 @@ import os
 import sys
 import json
 
-from appcore import Singleton, SingletonObject, aLogger
+from appcore.core import Singleton, SingletonObject, aLogger
 
 
 @Singleton

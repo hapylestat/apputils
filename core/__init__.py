@@ -1,6 +1,6 @@
 
-from appcore.config import Configuration
-from appcore.logger import aLogger
+from appcore.core.config import Configuration
+from appcore.core.logger import aLogger
 
 
 class Singleton(object):
