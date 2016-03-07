@@ -18,7 +18,10 @@ class Configuration(SingletonObject):
     return path.replace('/', os.path.sep)
 
   def __init__(self):
-    self.location = os.path.dirname(os.path.abspath(__file__))
+    mypackage = str(__package__)
+    mylocation = os.path.dirname(os.path.abspath(__file__))
+    self.location = mylocation[:-len(mypackage)]
+
     if self.location.endswith(__package__):
       self.location = self.location[:-len(__package__)-1]
 
