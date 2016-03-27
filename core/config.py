@@ -6,8 +6,77 @@ import json
 from appcore.core import Singleton, SingletonObject, aLogger
 
 
+class CommandLineAST(object):
+  def __init__(self, args, out_tree):
+    """
+    :arg args List of arguments to parse
+    :arg out_tree Hash map tree, already initialized at least with root element
+
+    :type out_tree dict
+    :type args list
+    """
+    self._log = aLogger.getLogger(self.__class__.__name__, default_level=aLogger.Level.error)
+    self.__args = list(args)
+    self.__out_tree = out_tree
+
+  def parse(self):
+    """
+    Parse command line to out tree
+    """
+    if self.__out_tree is None:
+      raise RuntimeError("Could'n use empty out tree as ast storage")
+
+    if len(self.__args) >= 1:
+      self.__args.pop(0)
+      self._log.info("Passed commandline arguments: %s", self.__args)
+
+    for param in self.__args:
+      param = param.lstrip("-").partition('=')
+      if len(param) == 3:
+        self.__parse_one_param(param)
+
+  def __set_node(self, node, key, value):
+    if not isinstance(node, dict):
+      self._log.error("Invalid assignment to {0}", key)
+      return
+
+    if key in node and isinstance(node[key], dict) and not isinstance(value, dict):
+      self._log.error("Invalid assignment to {0}", key)
+      return
+
+    node[key] = value
+
+  def __parse_one_param(self, param):
+    """
+    :argument param tuple which represents arg name, delimiter, arg value
+    :type param tuple
+    """
+    self._log.debug("Parse param \'%s\' with value \'%s\'", param[0], param[2])
+    keys = param[0].split('.')
+    if len(keys) == 1:  # parse root element
+      self._log.debug("Replacing param \'%s\' to value \'%s\'", keys[0], param[2])
+      self.__set_node(self.__out_tree, keys[0], param[2])
+    elif len(keys) > 0:
+      item = self.__out_tree
+      for i in range(0, len(keys)):
+        key = keys[i]
+        is_last_key = i == len(keys) - 1
+        if key not in item:
+          self.__set_node(item, key, "" if is_last_key else {})
+
+        if is_last_key and key in item and not isinstance(item[key], dict):
+          self.__set_node(item, key, param[2])
+        elif key in item and isinstance(item, dict):
+          item = item[key]
+        else:
+          self._log.error("Couldn't recognise parameter \'%s\'", param[0])
+          break
+    else:
+      self._log.error("Couldn't recognise parameter \'%s\'", param[0])
+
+
 @Singleton
-class Configuration(SingletonObject):
+class Configuration(object):
   location = ""
   _log = None
   _config_path = "conf/"
@@ -17,15 +86,28 @@ class Configuration(SingletonObject):
   def normalize_path(self, path):
     return path.replace('/', os.path.sep)
 
-  def __init__(self):
+  @staticmethod
+  def get_instance(in_memory=False):
+    """
+    :arg in_memory Initialize Configuration instance in memory only
+    :type in_memory bool
+    """
+    pass
+
+  def __init__(self, in_memory=False):
+    """
+    :arg in_memory Initialize Configuration instance in memory only
+    :type in_memory bool
+    """
     mypackage = str(__package__)
     mylocation = os.path.dirname(os.path.abspath(__file__))
+    self.__in_memory = bool(in_memory)
     self.location = mylocation[:-len(mypackage)]
 
     if self.location.endswith(__package__):
       self.location = self.location[:-len(__package__)-1]
 
-    self._log = aLogger.getLogger(__name__, default_level="error")  # initial logger
+    self._log = aLogger.getLogger(__name__, default_level=aLogger.Level.error)  # initial logger
     self._config_path = self.normalize_path("%s/%s" % (self.location, self._config_path))
     self.load()
 
@@ -56,10 +138,13 @@ class Configuration(SingletonObject):
      Load application configuration
     """
     try:
-      self._json = json.loads(self._load_from_configs(self._main_config))
-      self._log = aLogger.getLogger(__name__, cfg=self)  # reload logger using loaded configuration
-      self._log.info("Loaded main settings: %s", self._main_config)
-      self._load_modules()
+      if not self.__in_memory:
+        self._json = json.loads(self._load_from_configs(self._main_config))
+        self._log = aLogger.getLogger(__name__, cfg=self)  # reload logger using loaded configuration
+        self._log.info("Loaded main settings: %s", self._main_config)
+        self._load_modules()
+      else:
+        self._json = {}
       # parse command line, currently used for re-assign settings in configuration, but can't be used as replacement
       self._load_from_commandline()
     except Exception as err:
@@ -98,36 +183,8 @@ class Configuration(SingletonObject):
                           err)
 
   def _load_from_commandline(self):
-
-    def parse_one_param(param):
-      self._log.debug("Parse param \'%s\' with value \'%s\'", param[0], param[2])
-      keys = param[0].split('.')
-      if len(keys) == 1:  # parse root element
-        self._log.debug("Replacing param \'%s\' to value \'%s\'", keys[0], param[2])
-        self._json[keys[0]] = param[2]
-      elif len(keys) > 0 and keys[0] in self._json:
-        item = self._json[keys.pop(0)]
-        for key in keys:
-          if key in item and not isinstance(item[key], (tuple, list)):
-            self._log.debug("Replacing param \"%s\" to value \"%s\"", param[0], param[2])
-            item[key] = param[2]
-          elif key in item and isinstance(item, (tuple, list)):
-            item = item[key]
-          else:
-            self._log.error("Couldn't recognise parameter \'%s\'", param[0])
-            break
-      else:
-        self._log.error("Couldn't recognise parameter \'%s\'", param[0])
-
-    args = list(sys.argv)  # copy command line list, as we need to modify them slightly
-    if len(args) >= 1:
-      args.pop(0)
-      self._log.info("Passed commandline arguments: %s", args)
-
-    for param in args:
-      param = param.partition('=')
-      if len(param) == 3:
-        parse_one_param(param)
+    ast = CommandLineAST(list(sys.argv), self._json)
+    ast.parse()
 
   def exists(self, path):
     """
