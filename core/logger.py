@@ -35,6 +35,13 @@ _nameToLevel = {
 
 
 class aLogger:
+  class Level(object):
+    error = "error"
+    debug = "debug"
+    info = "info"
+    warning = "warning"
+    critical = "critical"
+    notset = "notset"
 
   @staticmethod
   def getLogger(name, cfg=None, default_level=None):

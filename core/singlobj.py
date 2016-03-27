@@ -5,11 +5,11 @@ class Singleton(object):
   def __init__(self, decorated):
     self._decorated = decorated
 
-  def get_instance(self):
+  def get_instance(self, *args, **kwargs):
     if '_instance' in dir(self):
       return self._instance
     else:
-      self._instance = self._decorated()
+      self._instance = self._decorated(*args, **kwargs)
       return self._instance
 
   def __call__(self):
@@ -20,5 +20,5 @@ class Singleton(object):
 
 
 class SingletonObject(object):
-  def get_instance(self):
+  def get_instance(self, *args, **kwargs):
     return self
