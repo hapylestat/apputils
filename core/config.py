@@ -75,7 +75,6 @@ class CommandLineAST(object):
       self._log.error("Couldn't recognise parameter \'%s\'", param[0])
 
 
-@Singleton
 class Configuration(object):
   location = ""
   _log = None
@@ -85,14 +84,6 @@ class Configuration(object):
 
   def normalize_path(self, path):
     return path.replace('/', os.path.sep)
-
-  @staticmethod
-  def get_instance(in_memory=False):
-    """
-    :arg in_memory Initialize Configuration instance in memory only
-    :type in_memory bool
-    """
-    pass
 
   def __init__(self, in_memory=False):
     """
@@ -256,3 +247,20 @@ class Configuration(object):
         return self._json["modules"][name]
     return None
 
+
+__conf = None
+
+
+def get_instance(in_memory=False):
+  """
+  :arg in_memory Initialize Configuration instance in memory only
+  :type in_memory bool
+  :rtype Configuration
+  :return Configuration
+  """
+  global __conf
+
+  if __conf is None:
+    __conf = Configuration(in_memory=in_memory)
+
+  return __conf
