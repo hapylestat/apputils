@@ -1,9 +1,15 @@
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# Copyright (c) 2015 Reishin <hapy.lestat@gmail.com>
 
 import os
 import sys
 import json
 
-from appcore.core import Singleton, SingletonObject, aLogger
+from appcore.core import aLogger
 
 
 class CommandLineAST(object):
@@ -15,6 +21,7 @@ class CommandLineAST(object):
     :type out_tree dict
     :type args list
     """
+    self.__default_arg_tag = "default"
     self._log = aLogger.getLogger(self.__class__.__name__, default_level=aLogger.Level.error)
     self.__args = list(args)
     self.__out_tree = out_tree
@@ -26,14 +33,34 @@ class CommandLineAST(object):
     if self.__out_tree is None:
       raise RuntimeError("Could'n use empty out tree as ast storage")
 
+    if isinstance(self.__out_tree, dict):
+      self.__out_tree[self.__default_arg_tag] = ""
+
     if len(self.__args) >= 1:
       self.__args.pop(0)
       self._log.info("Passed commandline arguments: %s", self.__args)
 
     for param in self.__args:
-      param = param.lstrip("-").partition('=')
-      if len(param) == 3:
-        self.__parse_one_param(param)
+      if self._is_default_arg(param):
+        self.__out_tree[self.__default_arg_tag] += param.strip()
+      else:
+        param = param.lstrip("-").partition('=')
+        if len(param) == 3:
+          self.__parse_one_param(param)
+
+  def _is_default_arg(self, param):
+    """
+    Check if passed arg belongs to default type
+    :type param str
+    :rtype bool
+    """
+    param = param.strip()
+    restricted_symbols = ["=", "-"]
+    for symbol in restricted_symbols:
+      if symbol in param:
+        return False
+
+    return True
 
   def __set_node(self, node, key, value):
     if not isinstance(node, dict):
@@ -76,7 +103,8 @@ class CommandLineAST(object):
 
 
 class Configuration(object):
-  location = ""
+  _location = ""
+  _script = "__main__"
   _log = None
   _config_path = "conf/"
   _main_config = "main.json"
@@ -92,19 +120,31 @@ class Configuration(object):
     """
     mypackage = str(__package__)
     mylocation = os.path.dirname(os.path.abspath(__file__))
-    self.__in_memory = bool(in_memory)
-    self.location = mylocation[:-len(mypackage)]
 
-    if self.location.endswith(__package__):
-      self.location = self.location[:-len(__package__)-1]
+    if sys.argv is not None and len(sys.argv) > 0:
+      self._script = os.path.basename(sys.argv[0])
+
+    self.__in_memory = bool(in_memory)
+    self._location = mylocation[:-len(mypackage)]
+
+    if self._location.endswith(__package__):
+      self._location = self._location[:-len(__package__) - 1]
 
     self._log = aLogger.getLogger(__name__, default_level=aLogger.Level.error)  # initial logger
-    self._config_path = self.normalize_path("%s/%s" % (self.location, self._config_path))
+    self._config_path = self.normalize_path("%s/%s" % (self._location, self._config_path))
     self.load()
 
   @property
   def conf_location(self):
     return self._config_path
+
+  @property
+  def location(self):
+    return self._location
+
+  @property
+  def script_filename(self):
+    return self._script
 
   def _load_from_configs(self, filename):
     """
