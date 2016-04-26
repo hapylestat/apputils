@@ -113,25 +113,28 @@ class Configuration(object):
   def normalize_path(self, path):
     return path.replace('/', os.path.sep)
 
-  def __init__(self, in_memory=False):
+  def __init__(self, in_memory=False, config_path=None, config_name=None):
     """
     :arg in_memory Initialize Configuration instance in memory only
     :type in_memory bool
+    :type config_path str
+    :type config_name str
     """
     mypackage = str(__package__)
-    mylocation = os.path.dirname(os.path.abspath(__file__))
+    self._location = os.path.dirname(sys.argv[0])
 
     if sys.argv is not None and len(sys.argv) > 0:
       self._script = os.path.basename(sys.argv[0])
 
     self.__in_memory = bool(in_memory)
-    self._location = mylocation[:-len(mypackage)]
 
     if self._location.endswith(__package__):
       self._location = self._location[:-len(__package__) - 1]
 
     self._log = aLogger.getLogger(__name__, default_level=aLogger.Level.error)  # initial logger
-    self._config_path = self.normalize_path("%s/%s" % (self._location, self._config_path))
+
+    self._main_config = "main.json" if config_name is None else config_name
+    self._config_path = self.normalize_path("%s/%s" % (self._location, self._config_path)) if config_path is None else config_path
     self.load()
 
   @property
@@ -291,16 +294,18 @@ class Configuration(object):
 __conf = None
 
 
-def get_instance(in_memory=False):
+def get_instance(in_memory=False, config_path=None, config_name=None):
   """
   :arg in_memory Initialize Configuration instance in memory only
   :type in_memory bool
+  :type config_path str
+  :type config_name str
   :rtype Configuration
   :return Configuration
   """
   global __conf
 
   if __conf is None:
-    __conf = Configuration(in_memory=in_memory)
+    __conf = Configuration(in_memory=in_memory, config_path=config_path, config_name=config_name)
 
   return __conf

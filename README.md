@@ -14,11 +14,7 @@ Even more come !
 
 # How to connect to your Project
 
-Using git submodule:
-- from project root: git submodule add https://github.com/hapylestat/appcore.git appcore
-
-Plain project:
-- from project root: git clone https://github.com/hapylestat/appcore.git appcore
+pip install git+https://github.com/hapylestat/appcore.git
 
 # How to use
 
