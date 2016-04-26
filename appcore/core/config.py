@@ -122,6 +122,8 @@ class Configuration(object):
     """
     mypackage = str(__package__)
     self._location = os.path.dirname(sys.argv[0])
+    if self._location.strip() == "":
+      self._location = "."
 
     if sys.argv is not None and len(sys.argv) > 0:
       self._script = os.path.basename(sys.argv[0])
