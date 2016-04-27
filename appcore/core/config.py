@@ -247,6 +247,7 @@ class Configuration(object):
   def get(self, path, default=None, check_type=None, module=None):
     """
     Get option property
+
     :param path: full path to the property with name
     :param default: default value if original is not present
     :param check_type: cast param to passed type, if fail, default will returned
