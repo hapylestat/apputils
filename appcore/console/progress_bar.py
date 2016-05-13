@@ -131,7 +131,7 @@ class ProgressBar(object):
     return int(self._width - self._calc_filled_space(percents))
 
   def _fill_empty(self):
-    data = " " * self._console_width
+    data = " " * (self._console_width - len(self._begin_line_character))
     self.stdout.write(self._begin_line_character + data)
     self.stdout.flush()
 
@@ -189,7 +189,7 @@ class ProgressBar(object):
       kwargs = {
         "begin_line": self._begin_line_character,
         "text": self._text,
-        "fill_space": ""
+        "fill_space": " " * (self._console_width - len(self._text) - len(os.linesep))
       }
       self.stdout.write("{begin_line}{text}{fill_space}".format(**kwargs))
     else:
