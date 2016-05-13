@@ -14,9 +14,9 @@ def do_progress(p, hide=False):
   :type p ProgressBar
   :type hide bool
   """
-  p.start(10)
+  p.start(1)
 
-  for i in range(1, 10):
+  for i in range(0, 1):
     p.progress_inc()
     time.sleep(0.3)
 
@@ -54,6 +54,11 @@ do_status_progress(ProgressBar("", 20,
                                options=ProgressBarOptions(fill_char="#",
                                                           blank_char="-",
                                                           progress_format=ProgressBarFormat.PROGRESS_FORMAT_STATUS_SIMPLE)))
+
+do_status_progress(ProgressBar("Counting job", 20,
+                               options=ProgressBarOptions(fill_char="#",
+                                                          blank_char="-",
+                                                          progress_format=ProgressBarFormat.PROGRESS_FORMAT_STATUS)), hide=True)
 
 
 

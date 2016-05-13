@@ -190,12 +190,18 @@ class ProgressBar(object):
     :type new_status str
     """
     if hide_progress:
+      sep = " - "
+      if new_status is None:
+        new_status = sep = ""
+
       kwargs = {
         "begin_line": self._begin_line_character,
         "text": self._text,
-        "fill_space": " " * (self._console_width - len(self._text) - len(os.linesep))
+        "new_status": new_status,
+        "sep": sep,
+        "fill_space": " " * (self._console_width - len(self._text) - len(sep) - len(new_status) - len(os.linesep))
       }
-      self.stdout.write("{begin_line}{text}{fill_space}".format(**kwargs))
+      self.stdout.write("{begin_line}{text}{sep}{new_status}{fill_space}".format(**kwargs))
     else:
       self.progress(int(self._max), new_status=new_status)
 
