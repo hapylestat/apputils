@@ -17,8 +17,8 @@ class ProgressBarFormat(object):
   PROGRESS_FORMAT_DEFAULT = "{begin_line}{text} {percents_done:>3}% [{filled}{empty}] {value}/{max}  {items_per_sec} i/s"
   PROGRESS_FORMAT_SHORT = "{begin_line}{text} {percents_done:>3}% [{filled}{empty}] {value}/{max}"
   PROGRESS_FORMAT_SIMPLE = "{begin_line}{text} [{filled}{empty}] {percents_done:>3}%"
-  PROGRESS_FORMAT_STATUS = "{begin_line}{text}: |{filled}{empty}| {percents_done:>3}%  {value}/{max}   [{status}]"
-  PROGRESS_FORMAT_STATUS_SIMPLE = "{begin_line}|{filled}{empty}| {percents_done:>3}%   [{status}]"
+  PROGRESS_FORMAT_STATUS = "{begin_line}{text}: |{filled}{empty}| {percents_done:>3}%  {value}/{max}   [{status}]{end_line}"
+  PROGRESS_FORMAT_STATUS_SIMPLE = "{begin_line}|{filled}{empty}| {percents_done:>3}%   [{status}]{end_line}"
 
 
 class ProgressBarOptions(object):
@@ -140,10 +140,11 @@ class ProgressBar(object):
     :type value int
     :type new_status str
     """
+    space_fillers = 0
     if new_status is not None:
       # if new text is shorter, then we need fill previously used place
       space_fillers = len(self._status) - len(new_status) if self._status and len(self._status) - len(new_status) > 0 else 0
-      self._status = new_status + " " * space_fillers
+      self._status = new_status
 
     total_secs = round(time.time() - self._prev_time)
     secs = total_secs % 60
@@ -162,6 +163,7 @@ class ProgressBar(object):
       "begin_line": self._begin_line_character,
       "text": self._text,
       "status": self._status,
+      "end_line": " " * space_fillers,
       "filled": filled,
       "empty": empty,
       "value": int(value),
