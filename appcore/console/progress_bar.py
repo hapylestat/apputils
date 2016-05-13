@@ -131,7 +131,7 @@ class ProgressBar(object):
     return int(self._width - self._calc_filled_space(percents))
 
   def _fill_empty(self):
-    data = self._options.blank_char * self._console_width
+    data = " " * self._console_width
     self.stdout.write(self._begin_line_character + data)
     self.stdout.flush()
 
