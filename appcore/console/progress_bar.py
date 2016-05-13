@@ -141,7 +141,9 @@ class ProgressBar(object):
     :type new_status str
     """
     if new_status is not None:
-      self._status = new_status
+      # if new text is shorter, then we need fill previously used place
+      space_fillers = len(self._status) - len(new_status) if self._status and len(self._status) - len(new_status) > 0 else 0
+      self._status = new_status + " " * space_fillers
 
     total_secs = round(time.time() - self._prev_time)
     secs = total_secs % 60
@@ -151,10 +153,10 @@ class ProgressBar(object):
       self._prev_time = time.time()
 
     percent_done = self._calc_percent_done(value)
-    filled = self._options.fill_char * self._calc_filled_space(percent_done)
-    empty = self._options.blank_char * self._calc_empty_space(percent_done)
+    filled = self._options.fill_char * int(self._calc_filled_space(percent_done))
+    empty = self._options.blank_char * int(self._calc_empty_space(percent_done))
     if value > self._max:
-      filled = self._options.fill_char * self._width
+      filled = self._options.fill_char * int(self._width)
 
     kwargs = {
       "begin_line": self._begin_line_character,
