@@ -34,7 +34,7 @@ class CommandLineAST(object):
       raise RuntimeError("Could'n use empty out tree as ast storage")
 
     if isinstance(self.__out_tree, dict):
-      self.__out_tree[self.__default_arg_tag] = ""
+      self.__out_tree[self.__default_arg_tag] = []
 
     if len(self.__args) >= 1:
       self.__args.pop(0)
@@ -42,7 +42,7 @@ class CommandLineAST(object):
 
     for param in self.__args:
       if self._is_default_arg(param):
-        self.__out_tree[self.__default_arg_tag] += param.strip()
+        self.__out_tree[self.__default_arg_tag].append(param.strip())
       else:
         param = param.lstrip("-").partition('=')
         if len(param) == 3:
