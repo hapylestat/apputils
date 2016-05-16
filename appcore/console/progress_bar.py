@@ -1,3 +1,4 @@
+# coding=utf-8
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -12,6 +13,23 @@ import os
 from appcore.console import get_terminal_size
 from appcore.utils import safe_format
 
+"""
+    Template description:
+      begin_line - here would be placed character of the begin line
+      text - caption of the progress
+      status - similar to caption, but could be changed thought iteration
+      end_line - used mostly in situation, when status is on right side, should fix issues
+       with different len of status messages
+      filled - part of progress bar which represent filled part
+      reverse_filled - part of progress bar which represent reversed filled part
+      empty - part of progress bar which represent not filled part
+      value - current value
+      max - max value
+      unit_per_sec - amount of units per second
+      percents_done - percents done
+
+"""
+
 
 class ProgressBarFormat(object):
   PROGRESS_FORMAT_DEFAULT = "{begin_line}{text} {percents_done:>3}% [{filled}{empty}] {value}/{max}  {items_per_sec} i/s"
@@ -19,17 +37,23 @@ class ProgressBarFormat(object):
   PROGRESS_FORMAT_SIMPLE = "{begin_line}{text} [{filled}{empty}] {percents_done:>3}%"
   PROGRESS_FORMAT_STATUS = "{begin_line}{text}: |{filled}{empty}| {percents_done:>3}%  {value}/{max}   [{status}]{end_line}"
   PROGRESS_FORMAT_STATUS_SIMPLE = "{begin_line}|{filled}{empty}| {percents_done:>3}%   [{status}]{end_line}"
+  PROGRESS_FORMAT_INFINITE_SIMPLE = "{begin_line} {filled}{empty} [text] {empty}{reverse_filled}"
+
+
+class CharacterStyles(object):
+  default = (" ", "=")
+  simple = ("-", "#")
+  graphic = ("░", "█")
 
 
 class ProgressBarOptions(object):
-  def __init__(self, fill_char="=", blank_char=" ", progress_format=ProgressBarFormat.PROGRESS_FORMAT_DEFAULT):
+  def __init__(self, character_style=CharacterStyles.default, progress_format=ProgressBarFormat.PROGRESS_FORMAT_DEFAULT):
     """
-    :type fill_char str
-    :type blank_char str
+    :type character_style tuple
     :type progress_format str
     """
-    self._fill_char = fill_char
-    self._blank_char = blank_char
+    self._fill_char = character_style[1]
+    self._blank_char = character_style[0]
     self._progress_format = progress_format
 
   @property
@@ -43,6 +67,42 @@ class ProgressBarOptions(object):
   @property
   def progress_format(self):
     return self._progress_format
+
+
+class _ProgressBarTiming(object):
+  def __init__(self):
+    self.__max_value = None
+    self.__unit_per_sec = None
+    self.__unit_per_sec_prev = None
+
+    #  timers
+    self.__prev_tick = None
+
+  def init_timer(self, max_value):
+    """
+    :type max_value int
+    """
+    self.__max_value = max_value
+    self.__prev_tick = time.time()
+    self.__unit_per_sec = 0
+    self.__unit_per_sec_prev = 0
+
+  def tick(self, unit_value):
+    """
+    :type unit_value int
+    """
+    total_secs = round(time.time() - self.__prev_tick)
+    if total_secs >= 1:
+      self.__unit_per_sec = unit_value / total_secs - self.__unit_per_sec_prev
+      self.__unit_per_sec_prev = unit_value
+      self.__prev_tick = time.time()
+
+  @property
+  def unit_per_sec(self):
+    """
+    :rtype int
+    """
+    return int(self.__unit_per_sec)
 
 
 class ProgressBar(object):
@@ -60,15 +120,15 @@ class ProgressBar(object):
     self._text = text
     self._status = ""
     self._width = width
-    self._max = float(0)
-    c = get_terminal_size(fallback=(80, 24))
-    self._console_width = c[0]
-    self._value = 0
-    self._prev_time = 0
-    self._items_per_sec = 0
-    self._items_per_sec_prev = 0
+    self._max = 0
+    self._console_width = get_terminal_size(fallback=(80, 24))[0]
+    self._value = None
+    self._timer = _ProgressBarTiming()
     self._begin_line_character = '\r'
     self._options = options
+    self._infinite_mode = None
+    self._infinite_position = None
+    self._infinite_width = 1
     self.stdout = sys.stdout
 
   @property
@@ -104,13 +164,15 @@ class ProgressBar(object):
     :arg max_val Maximum value
     :type max_val int
     """
+    self._timer.init_timer(max_value=max_val)
+
+    self._infinite_mode = max_val <= 0
+    self._infinite_position = 0
+
     self._max = max_val
     self._fill_empty()
     self._value = 0
     self.progress(0)
-    self._items_per_sec = 0
-    self._items_per_sec_prev = 0
-    self._prev_time = time.time()
 
   def _calc_percent_done(self, value):
     """
@@ -141,23 +203,27 @@ class ProgressBar(object):
     :type new_status str
     """
     space_fillers = 0
+
     if new_status is not None:
       # if new text is shorter, then we need fill previously used place
       space_fillers = len(self._status) - len(new_status) if self._status and len(self._status) - len(new_status) > 0 else 0
       self._status = new_status
 
-    total_secs = round(time.time() - self._prev_time)
-    secs = total_secs % 60
-    if secs >= 1:
-      self._items_per_sec = self._value - self._items_per_sec_prev
-      self._items_per_sec_prev = self._value
-      self._prev_time = time.time()
+    if not self._infinite_mode and value > self._max:
+      self._infinite_mode = True
+      self._fill_empty()
 
-    percent_done = self._calc_percent_done(value)
-    filled = self._options.fill_char * int(self._calc_filled_space(percent_done))
-    empty = self._options.blank_char * int(self._calc_empty_space(percent_done))
-    if value > self._max:
-      filled = self._options.fill_char * int(self._width)
+    self._timer.tick(value)
+
+    if not self._infinite_mode:
+      percent_done = self._calc_percent_done(value)
+      filled = self._options.fill_char * int(self._calc_filled_space(percent_done))
+      empty = self._options.blank_char * int(self._calc_empty_space(percent_done))
+    else:
+      percent_done = 100
+      self._infinite_position = 1 if self._infinite_position + self._infinite_width >= self._width else self._infinite_position + 1
+      filled = "%s%s" % (self._options.blank_char * (self._infinite_position - self._infinite_width), self._options.fill_char * self._infinite_width)
+      empty = self._options.blank_char * int(self._width - self._infinite_position)
 
     kwargs = {
       "begin_line": self._begin_line_character,
@@ -165,10 +231,11 @@ class ProgressBar(object):
       "status": self._status,
       "end_line": " " * space_fillers,
       "filled": filled,
+      "reverse_filled": filled[::-1],
       "empty": empty,
       "value": int(value),
       "max": int(self._max),
-      "items_per_sec": int(self._items_per_sec),
+      "items_per_sec": self._timer.unit_per_sec,
       "percents_done": percent_done
     }
 
