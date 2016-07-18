@@ -105,6 +105,11 @@ class _ProgressBarTiming(object):
     return int(self.__unit_per_sec)
 
 
+class ProgressBarStatus(object):
+  stopped = 0
+  started = 1
+
+
 class ProgressBar(object):
   def __init__(self, text, width, options=ProgressBarOptions()):
     """
@@ -118,7 +123,7 @@ class ProgressBar(object):
     :type options ProgressBarOptions
     """
     self._text = text
-    self._status = ""
+    self._status_msg = ""
     self._width = width
     self._max = 0
     self._console_width = get_terminal_size(fallback=(80, 24))[0]
@@ -130,6 +135,15 @@ class ProgressBar(object):
     self._infinite_position = None
     self._infinite_width = 1
     self.stdout = sys.stdout
+    self._status = ProgressBarStatus.stopped
+
+  @property
+  def value(self):
+    return self._value
+
+  @property
+  def status(self):
+    return self._status
 
   @property
   def _width(self):
@@ -173,6 +187,7 @@ class ProgressBar(object):
     self._fill_empty()
     self._value = 0
     self.progress(0)
+    self._status = ProgressBarStatus.started
 
   def _calc_percent_done(self, value):
     """
@@ -206,8 +221,8 @@ class ProgressBar(object):
 
     if new_status is not None:
       # if new text is shorter, then we need fill previously used place
-      space_fillers = len(self._status) - len(new_status) if self._status and len(self._status) - len(new_status) > 0 else 0
-      self._status = new_status
+      space_fillers = len(self._status_msg) - len(new_status) if self._status_msg and len(self._status_msg) - len(new_status) > 0 else 0
+      self._status_msg = new_status
 
     if not self._infinite_mode and value > self._max:
       self._infinite_mode = True
@@ -228,7 +243,7 @@ class ProgressBar(object):
     kwargs = {
       "begin_line": self._begin_line_character,
       "text": self._text,
-      "status": self._status,
+      "status": self._status_msg,
       "end_line": " " * space_fillers,
       "filled": filled,
       "reverse_filled": filled[::-1],
@@ -250,12 +265,20 @@ class ProgressBar(object):
     self._value += step
     self.progress(self._value, new_status=new_status)
 
+  def reset(self):
+    self._status = ProgressBarStatus.stopped
+    self._max = 0
+    self._value = 0
+    self.progress(0)
+
   def stop(self, hide_progress=False, new_status=None):
     """
     :arg hide_progress Hide progress bar
     :type hide_progress bool
     :type new_status str
     """
+
+    self._status = ProgressBarStatus.stopped
     if hide_progress:
       sep = " - "
       if new_status is None:
