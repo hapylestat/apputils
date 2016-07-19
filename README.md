@@ -1,4 +1,4 @@
-# appcore
+# appcore  [![Documentation Status](https://readthedocs.org/projects/appcore/badge/?version=latest)](http://appcore.readthedocs.io/en/latest/?badge=latest)
 Core modules for python application.
 
 Provides possibility to:
