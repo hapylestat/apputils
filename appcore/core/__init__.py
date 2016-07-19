@@ -15,5 +15,5 @@ __version__ = "0.1.2.1"
 __author__ = "Dmytro Grinenko"
 __author_mail__ = "hapy.lestat@gmail.com"
 __url__ = "https://github.com/hapylestat/appcore"
-
+__copyright__ = "2016, {}".format(__author__)
 __all__ = ["Configuration", "config", "aLogger", "Singleton", "SingletonObject"]

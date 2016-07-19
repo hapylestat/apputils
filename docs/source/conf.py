@@ -26,7 +26,7 @@ appcore_dir = "{basedir}{sep}..{sep}..{sep}".format(basedir=mydir, sep=os.path.s
 sys.path.insert(0, os.path.abspath(appcore_dir))
 sys.path.insert(1, os.path.abspath(appcore_dir + os.path.sep + "appcore"))
 
-from appcore.core import __name__, __version__, __author__, __author_mail__
+from appcore.core import __name__, __version__, __author__, __author_mail__, __copyright__
 
 
 # -- General configuration ------------------------------------------------
@@ -65,7 +65,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = __name__
-copyright = __author_mail__
+copyright = __copyright__
 author = __author__
 
 # The version info for the project you're documenting, acts as replacement for
