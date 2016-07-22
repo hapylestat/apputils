@@ -33,6 +33,14 @@ class ConfigObject(object):
         self.deserialize(serialized_obj)
         self.clean()
 
+  def __isclass(self, obj):
+    try:
+      issubclass(obj, object)
+    except TypeError:
+      return False
+    else:
+      return True
+
   def clean(self):
     """
     Replace not de-serialized types with none
@@ -40,10 +48,10 @@ class ConfigObject(object):
     """
     for item in dir(self):
       attr = self.__getattribute__(item)
-      if item[:2] != "__" and isinstance(attr, (type, types.ClassType)) and issubclass(attr, ConfigObject):
+      if item[:2] != "__" and self.__isclass(attr) and issubclass(attr, ConfigObject):
         self.__setattr__(item, None)
       elif item[:2] != "__" and isinstance(attr, list) and len(attr) == 1 and \
-        isinstance(attr[0], (type, types.ClassType)) and issubclass(attr[0], ConfigObject):
+        self.__isclass(attr[0]) and issubclass(attr[0], ConfigObject):
         self.__setattr__(item, [])
 
   def deserialize(self, d):
@@ -66,7 +74,7 @@ class ConfigObject(object):
           else:
             obj_list.append(attr_type[0](v))
           self.__setattr__(k, obj_list)
-        elif isinstance(attr_type, (type, types.ClassType)) and issubclass(attr_type, ConfigObject):
+        elif self.__isclass(attr_type) and issubclass(attr_type, ConfigObject):
           self.__setattr__(k, attr_type(v))
         else:
           self.__setattr__(k, v)
