@@ -12,6 +12,13 @@ class Singleton(object):
     self._decorated = decorated
 
   def get_instance(self, *args, **kwargs):
+    """
+     Returns instance of the class if any present, or create new one
+
+    :param args: arguments for class constructor
+    :param kwargs: kwargs for class constructor
+    :return: instance of the class
+    """
     if '_instance' in dir(self):
       return self._instance
     else:

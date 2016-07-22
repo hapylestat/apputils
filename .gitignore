@@ -1,8 +1,16 @@
+# Project files
 *.iml
 .idea/
+
+# Project binaries
 out/
 __pycache__/
 *.pyc
 build/*
 *.egg-info/*
 dist/*
+
+
+# Documentation folder binaries
+docs/build/*
+!docs/build/README.rst

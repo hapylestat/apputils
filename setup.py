@@ -7,6 +7,9 @@ app_author_mail = core_module.__author_mail__
 app_ver = core_module.__version__
 app_url = core_module.__url__
 
+
+package_excludes = ("examples",)
+
 setup(
   name=app_name,
   version=app_ver,
@@ -16,7 +19,7 @@ setup(
   description='Small framework for console applications',
   license='lGPL v3',
   zip_safe=False,
-  packages=find_packages(),
+  packages=find_packages(exclude=package_excludes),
 
   include_package_data=True,
   classifiers=[

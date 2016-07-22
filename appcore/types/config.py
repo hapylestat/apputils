@@ -57,9 +57,6 @@ class ConfigObject(object):
   def deserialize(self, d):
     """
     :type d dict
-    {
-      "property": "value"
-    }
     """
     if isinstance(d, dict):
       for k, v in d.items():
