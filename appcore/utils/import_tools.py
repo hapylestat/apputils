@@ -299,13 +299,13 @@ class ModulesDiscovery(object):
 
       f_args = entry_point.__code__.co_varnames[:entry_point.__code__.co_argcount]
 
-      if len(f_args) - len(set(f_args) & {_custom_func_argumants}) != len(set(args.keys()) & set(f_args)):
+      if len(f_args) - len(set(f_args) & _custom_func_argumants) != len(set(args.keys()) & set(f_args)):
         raise ArgumentException("Function \"{}\" from module {} doesn't implement all arguments in the signature".format(
           entry_point.__name__, class_path
         ))
 
       if "conf" in f_args:
-        args["conf"] = Configuration
+        args["conf"] = configuration
 
       entry_point(**args)
     except ArgumentException as e:
