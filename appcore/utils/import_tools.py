@@ -39,6 +39,7 @@ class ModuleArgumentsBuilder(object):
     self._default_args = []
     self.__restricted_default_types = [int, str, float, list]
     self.__restricted_types = self.__restricted_default_types + [bool]
+    self.__is_last_default_arg = False
 
   def add_argument(self, name, value_type, item_help, default=None):
     """
@@ -76,18 +77,31 @@ class ModuleArgumentsBuilder(object):
     """
     return self._default_args
 
-  def add_default_argument(self, name, value_type, item_help):
+  def add_default_argument(self, name, value_type, item_help, default=None):
     """
     :type name str
     :type value_type Type
     :type item_help str
+    :type default Type
     :rtype ModuleArgumentsBuilder
     """
     if value_type not in self.__restricted_default_types:
       raise ArgumentException("Positional(default) argument couldn't have {} type".format(value_type.__name__))
 
-    self._default_args.append(ModuleArgumentItem(name, value_type, item_help))
+    if self.__is_last_default_arg:
+      raise ArgumentException("Positional(default) argument could have only one default last element".format(value_type.__name__))
+    elif default is not None:
+      self.__is_last_default_arg = True
+
+      if not isinstance(default, value_type):
+        raise ArgumentException("Invalid default type for argument".format(name))
+
+    self._default_args.append(ModuleArgumentItem(name, value_type, item_help, default=default))
     return self
+
+  @property
+  def has_optional_default_argument(self):
+    return self.__is_last_default_arg
 
   def get_default_argument(self, index):
     """
@@ -134,16 +148,25 @@ class ModuleMetaInfo(object):
     expected_length = len(default_arguments)
     real_length = len(default_args_sample)
 
-    if default_args_sample is None or expected_length != real_length:
+    if not self._arguments.has_optional_default_argument and (default_args_sample is None or expected_length != real_length):
       raise ArgumentException("Command require {} positional argument(s), found {}".format(
         expected_length,
+        real_length
+      ))
+    elif self._arguments.has_optional_default_argument and default_args_sample is not None and real_length < expected_length - 1:
+      raise ArgumentException("Command require {} or {} positional argument(s), found {}".format(
+        expected_length,
+        expected_length - 1,
         real_length
       ))
 
     for index in range(0, expected_length):
       arg_meta = default_arguments[index]
       """:type arg_meta ModuleArgumentItem"""
-      arg = default_args_sample[index]
+      try:
+        arg = default_args_sample[index]
+      except IndexError:
+        arg = arg_meta.default
 
       try:
         arg = self.__convert_value_to_type(arg, arg_meta.value_type)
