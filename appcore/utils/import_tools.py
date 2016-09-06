@@ -276,6 +276,7 @@ class ModulesDiscovery(object):
     """
     :type configuration Configuration
     """
+    _custom_func_argumants = {"conf"}
     default_arg_list = [item for item in configuration.get("default") if len(item.strip()) != 0]
     if len(default_arg_list) == 0:
       self.generate_help()
@@ -298,7 +299,7 @@ class ModulesDiscovery(object):
 
       f_args = entry_point.__code__.co_varnames[:entry_point.__code__.co_argcount]
 
-      if len(f_args) != len(set(args.keys()) & set(f_args)):
+      if len(f_args) - len(set(f_args) & {_custom_func_argumants}) != len(set(args.keys()) & set(f_args)):
         raise ArgumentException("Function \"{}\" from module {} doesn't implement all arguments in the signature".format(
           entry_point.__name__, class_path
         ))
