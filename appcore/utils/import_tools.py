@@ -232,7 +232,7 @@ class ModulesDiscovery(object):
 
   def collect(self):
     modules = []
-    exclude_list = ["pyc", "__init__.py"]
+    exclude_list = ["pyc", "__init__.py", "__pycache__"]
     required_module_fields = {"__args__", "__module__", self._module_main_fname}
 
     for name in os.listdir(self._search_dir):
