@@ -53,7 +53,7 @@ class CommandLineAST(object):
     param = param.strip()
     restricted_symbols = ["=", "-"]
     for symbol in restricted_symbols:
-      if symbol in param:
+      if symbol in param[:1]:
         return False
 
     return True

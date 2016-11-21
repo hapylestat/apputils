@@ -81,18 +81,29 @@ class ConfigObject(object):
     :rtype: dict
     """
     ret = {}
-    for k, v in self.__dict__.items():
+
+    # first of all we need to move defaults from class
+    properties = dict(self.__class__.__dict__)
+    properties.update(dict(self.__dict__))
+
+    properties = {k: v for k, v in properties.items() if k[:1] != "_"}
+
+    for k, v in properties.items():
       if v is not None:
         if isinstance(v, list) and len(v) > 0:
           v_result = []
           for v_item in v:
             if issubclass(v_item.__class__, ConfigObject):
               v_result.append(v_item.serialize())
+            elif issubclass(v_item, ConfigObject):
+              v_result.append(v_item().serialize())
             else:
               v_result.append(v_item)
           ret[k] = v_result
-        elif issubclass(v.__class__, ConfigObject):
+        elif issubclass(v.__class__, ConfigObject):  # here we have instance of an class
           ret[k] = v.serialize()
+        elif self.__isclass(v) and issubclass(v, ConfigObject):  # here is an class itself
+          ret[k] = v().serialize()
         else:
           ret[k] = v
 
