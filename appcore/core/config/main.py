@@ -21,17 +21,13 @@ class Configuration(object):
   _main_config = "main.json"
   _json = None
 
-  def normalize_path(self, path):
-    return path.replace('/', os.path.sep)
-
-  def __init__(self, in_memory=False, config_path=None, config_name=None):
+  def __init__(self, in_memory=False, config_location=None, config_name=None):
     """
     :arg in_memory Initialize Configuration instance in memory only
     :type in_memory bool
-    :type config_path str
+    :type config_location str
     :type config_name str
     """
-    mypackage = str(__package__)
     self._location = os.path.dirname(sys.argv[0])
     if self._location.strip() == "":
       self._location = "."
@@ -47,7 +43,16 @@ class Configuration(object):
     self._log = aLogger.getLogger(__name__, default_level=aLogger.Level.error)  # initial logger
 
     self._main_config = "main.json" if config_name is None else config_name
-    self._config_path = self.normalize_path("%s/%s" % (self._location, self._config_path)) if config_path is None else config_path
+
+    _config_path = "{}/{}".format(self._location, self._config_path)
+
+    if config_location and len(config_location) > 0 and config_location[:2] == "..":
+      _config_path = "%s/%s" % (self._location, config_location)
+    elif not config_location:
+      _config_path = "%s/%s" % (self._location, self._config_path)
+
+    self._config_path = os.path.abspath(_config_path.replace("/", os.path.sep))
+
     self.load()
 
   @property
@@ -220,6 +225,6 @@ def get_instance(in_memory=False, config_path=None, config_name=None):
   global __conf
 
   if __conf is None:
-    __conf = Configuration(in_memory=in_memory, config_path=config_path, config_name=config_name)
+    __conf = Configuration(in_memory=in_memory, config_location=config_path, config_name=config_name)
 
   return __conf
