@@ -47,7 +47,7 @@ class Configuration(object):
     _config_path = "{}/{}".format(self._location, self._config_path)
 
     if config_location and len(config_location) > 0 and config_location[:2] == "..":
-      _config_path = "%s/%s" % (self._location, config_location)
+      _config_path = "%s/%s/" % (self._location, config_location)
     elif not config_location:
       _config_path = "%s/%s" % (self._location, self._config_path)
 
@@ -71,7 +71,7 @@ class Configuration(object):
     """
      Return content of file which located in configuration directory
     """
-    config_filename = "%s%s" % (self._config_path, filename)
+    config_filename = os.path.join(self._config_path, filename)
     if os.path.exists(config_filename):
       try:
         f = open(config_filename, 'r')
