@@ -14,6 +14,10 @@ class ArgumentException(Exception):
   pass
 
 
+class NoCommandException(Exception):
+  pass
+
+
 class ModuleArgumentItem(object):
   name = None
   value_type = None
@@ -49,7 +53,7 @@ class ModuleArgumentsBuilder(object):
     :type default Type
     :rtype ModuleArgumentsBuilder
     """
-    if value_type not in self.__restricted_types:
+    if value_type and value_type not in self.__restricted_types:
       raise ArgumentException("Named argument couldn't have {} type".format(value_type.__name__))
 
     if default is not None and not isinstance(default, value_type):
@@ -169,7 +173,9 @@ class ModuleMetaInfo(object):
         arg = arg_meta.default
 
       try:
-        arg = self.__convert_value_to_type(arg, arg_meta.value_type)
+        if arg_meta.value_type is not None:
+          arg = self.__convert_value_to_type(arg, arg_meta.value_type)
+
         parsed_arguments_dict[arg_meta.name] = arg
       except (TypeError, ValueError):
         raise ArgumentException("Invalid argument type - expected {}, got {}".format(arg_meta.value_type.__name__, type(arg).__name__))
@@ -178,7 +184,7 @@ class ModuleMetaInfo(object):
 
   def parse_arguments(self, conf):
     """
-    :type conf Configuration
+    :type conf Configuration|dict
     """
     parsed_arguments_dict = {}
     arguments = self._arguments.arguments
@@ -187,7 +193,10 @@ class ModuleMetaInfo(object):
       arg_meta = arguments[arg_name]
       """:type arg_meta ModuleArgumentItem"""
       try:
-        arg = self.__convert_value_to_type(conf.get(arg_name), arg_meta.value_type)
+        if arg_meta.value_type is not None:
+          arg = self.__convert_value_to_type(conf.get(arg_name), arg_meta.value_type)
+        else:
+          arg = conf.get(arg_name)
       except KeyError:
         if arg_meta.default is None:
           raise ArgumentException("Command require \"{}\" argument to be set".format(arg_name))
@@ -261,30 +270,105 @@ class ModulesDiscovery(object):
           }
         })
 
-  def generate_help(self, command=""):
+  def generate_help(self, filename="", command=""):
     """
     :type command str
     """
-    filename = os.path.basename(os.path.abspath(sys.argv[0]))
-    sys.stdout.write("{} [{}]\n\n".format(filename, "|".join(self.available_command_list)))
+    return "{} [{}]\n\n".format(filename, "|".join(self.available_command_list))
 
   @property
   def available_command_list(self):
     return list(self._modules.keys())
 
+  def execute_command(self, default_arg_list=None, **kwargs):
+    """
+    :type default_arg_list list
+    :type kwargs dict
+    """
+    _custom_func_arguments = set()
+
+    if default_arg_list is None or len(default_arg_list) == 0:
+      raise NoCommandException("No command passed, unable to continue")
+
+    command_name = default_arg_list.pop(0)
+    if command_name not in self._modules.keys():
+      raise NoCommandException("No such command '{}' found, unable to continue".format(command_name))
+
+    command = self._modules[command_name]
+    entry_point = command["entry_point"]
+    class_path = command["classpath"]
+    metainfo = command["metainfo"]
+    """:type metainfo ModuleMetaInfo"""
+
+    try:
+      args = metainfo.parse_default_arguments(default_arg_list)
+      args.update(metainfo.parse_arguments(kwargs))
+
+      f_args = entry_point.__code__.co_varnames[:entry_point.__code__.co_argcount]
+
+      if len(f_args) - len(set(f_args) & _custom_func_arguments) != len(set(args.keys()) & set(f_args)):
+        raise ArgumentException("Function \"{}\" from module {} doesn't implement all arguments in the signature".format(
+          entry_point.__name__, class_path
+        ))
+
+      entry_point(**args)
+    except ArgumentException as e:
+      raise NoCommandException("Application arguments exception: {}\n".format(str(e)))
+
+  if sys.version_info >= (3, 4):
+    import asyncio
+
+    @asyncio.coroutine
+    def execute_command_async(self, default_arg_list=None, **kwargs):
+      """
+      :type default_arg_list list
+      :type kwargs dict
+      """
+      _custom_func_arguments = set()
+
+      if default_arg_list is None or len(default_arg_list) == 0:
+        raise NoCommandException("No command passed, unable to continue")
+
+      command_name = default_arg_list.pop(0)
+      if command_name not in self._modules.keys():
+        raise NoCommandException("No such command '{}' found, unable to continue".format(command_name))
+
+      command = self._modules[command_name]
+      entry_point = command["entry_point"]
+      class_path = command["classpath"]
+      metainfo = command["metainfo"]
+      """:type metainfo ModuleMetaInfo"""
+
+      try:
+        args = metainfo.parse_default_arguments(default_arg_list)
+        args.update(metainfo.parse_arguments(kwargs))
+
+        f_args = entry_point.__code__.co_varnames[:entry_point.__code__.co_argcount]
+
+        if len(f_args) - len(set(f_args) & _custom_func_arguments) != len(set(args.keys()) & set(f_args)):
+          raise ArgumentException("Function \"{}\" from module {} doesn't implement all arguments in the signature".format(
+            entry_point.__name__, class_path
+          ))
+
+        yield from entry_point(**args)
+      except ArgumentException as e:
+        raise NoCommandException("Application arguments exception: {}\n".format(str(e)))
+
   def main(self, configuration):
     """
     :type configuration Configuration
     """
-    _custom_func_argumants = {"conf"}
+    _custom_func_arguments = {"conf"}
+    filename = os.path.basename(os.path.abspath(sys.argv[0]))
+
     default_arg_list = [item for item in configuration.get("default") if len(item.strip()) != 0]
     if len(default_arg_list) == 0:
-      self.generate_help()
+      sys.stdout.write(self.generate_help(filename=filename))
       return
 
     command_name = default_arg_list.pop(0)
     if command_name not in self._modules.keys():
-      self.generate_help()
+      sys.stdout.write(self.generate_help(filename=filename))
       return
 
     command = self._modules[command_name]
@@ -299,7 +383,7 @@ class ModulesDiscovery(object):
 
       f_args = entry_point.__code__.co_varnames[:entry_point.__code__.co_argcount]
 
-      if len(f_args) - len(set(f_args) & _custom_func_argumants) != len(set(args.keys()) & set(f_args)):
+      if len(f_args) - len(set(f_args) & _custom_func_arguments) != len(set(args.keys()) & set(f_args)):
         raise ArgumentException("Function \"{}\" from module {} doesn't implement all arguments in the signature".format(
           entry_point.__name__, class_path
         ))
