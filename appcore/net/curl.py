@@ -26,10 +26,17 @@ else:
 
 
 class CURLResponse(object):
-  def __init__(self, director_open_result):
+  def __init__(self, director_open_result, is_stream=False):
+    """
+    :type director_open_result http.client.HTTPResponse
+    """
     self._code = director_open_result.code
     self._headers = director_open_result.info()
-    self._content = director_open_result.read()
+    self._is_stream = is_stream
+    self._director_result = director_open_result
+
+    if not self._is_stream:
+      self._content = director_open_result.read()
 
   def __decode_response(self, data):
     data = self.__decode_compressed(data)
@@ -74,14 +81,17 @@ class CURLResponse(object):
     """
     :return: Text content of the response (unzipped and decoded)
     """
-    return self.__decode_response(self._content)
+    if not self._is_stream:
+      return self.__decode_response(self._content)
+    else:
+      raise TypeError("Stream content could be obtained only via raw property")
 
   @property
   def raw(self):
     """
     :return: Raw content of the response
     """
-    return self._content
+    return self._director_result if self._is_stream else self._content
 
   def from_json(self):
     """
@@ -188,7 +198,7 @@ def __parse_content(data):
   return response_data, response_headers
 
 
-def curl(url, params=None, auth=None, req_type='GET', data=None, headers=None, timeout=None, use_gzip=True):
+def curl(url, params=None, auth=None, req_type='GET', data=None, headers=None, timeout=None, use_gzip=True, use_stream=False):
   """
   Make request to web resource
 
@@ -200,15 +210,17 @@ def curl(url, params=None, auth=None, req_type='GET', data=None, headers=None, t
   :param headers: headers which would be posted with request
   :param timeout: Request timeout
   :param use_gzip: Accept gzip and deflate response from the server
+  :param use_stream: Do not parse content of response ans stream it via raw property
   :return Response object
 
-  :column_type url str
-  :column_type params dict
-  :column_type auth CURLAuth
-  :column_type req_type str
-  :column_type headers dict
-  :column_type timeout int
-  :column_type use_gzip bool
+  :type url str
+  :type params dict
+  :type auth CURLAuth
+  :type req_type str
+  :type headers dict
+  :type timeout int
+  :type use_gzip bool
+  :type use_stream bool
   :rtype CURLResponse
   """
   post_req = ["POST", "PUT"]
@@ -257,9 +269,9 @@ def curl(url, params=None, auth=None, req_type='GET', data=None, headers=None, t
 
   try:
     if timeout is not None:
-      return CURLResponse(director.open(req, timeout=timeout))
+      return CURLResponse(director.open(req, timeout=timeout), is_stream=use_stream)
     else:
-      return CURLResponse(director.open(req))
+      return CURLResponse(director.open(req), is_stream=use_stream)
   except URLError as e:
     if isinstance(e, HTTPError):
       raise e
