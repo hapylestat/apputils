@@ -7,6 +7,8 @@
 
 import os
 import sys
+from collections import OrderedDict
+
 from appcore.core.config.main import Configuration
 
 
@@ -43,7 +45,7 @@ class ModuleArgumentsBuilder(object):
     self._default_args = []
     self.__restricted_default_types = [int, str, float, list]
     self.__restricted_types = self.__restricted_default_types + [bool]
-    self.__is_last_default_arg = False
+    self.__is_default_arg_flag_used = False
 
   def add_argument(self, name, value_type, item_help, default=None):
     """
@@ -77,9 +79,15 @@ class ModuleArgumentsBuilder(object):
   @property
   def default_arguments(self):
     """
-    :rtype list
+    :rtype dict
+    :rtype dict
     """
-    return self._default_args
+    d = OrderedDict()
+
+    for arg in self._default_args:
+      d.update({arg.name: arg})
+
+    return d
 
   def add_default_argument(self, name, value_type, item_help, default=None):
     """
@@ -92,10 +100,10 @@ class ModuleArgumentsBuilder(object):
     if value_type not in self.__restricted_default_types:
       raise ArgumentException("Positional(default) argument couldn't have {} type".format(value_type.__name__))
 
-    if self.__is_last_default_arg:
-      raise ArgumentException("Positional(default) argument could have only one default last element".format(value_type.__name__))
+    if self.__is_default_arg_flag_used and default is None:
+      raise ArgumentException("After defining first default Positional argument, rest should have default value too".format(value_type.__name__))
     elif default is not None:
-      self.__is_last_default_arg = True
+      self.__is_default_arg_flag_used = True
 
       if not isinstance(default, value_type):
         raise ArgumentException("Invalid default type for argument".format(name))
@@ -105,7 +113,7 @@ class ModuleArgumentsBuilder(object):
 
   @property
   def has_optional_default_argument(self):
-    return self.__is_last_default_arg
+    return self.__is_default_arg_flag_used
 
   def get_default_argument(self, index):
     """
@@ -117,16 +125,27 @@ class ModuleArgumentsBuilder(object):
 
 
 class ModuleMetaInfo(object):
-  def __init__(self, name):
+  def __init__(self, name, item_help="", **kwargs):
     """
     :type name str
+    :type kwargs dict
     """
     self._name = name
     self._arguments = ModuleArgumentsBuilder()
+    self._help = item_help
+    self._kwargs = kwargs
+
+  @property
+  def options(self):
+    return self._kwargs
 
   @property
   def name(self):
     return self._name
+
+  @property
+  def help(self):
+    return self._help
 
   def get_arguments_builder(self):
     """
@@ -148,19 +167,21 @@ class ModuleMetaInfo(object):
     :rtype dict
     """
     parsed_arguments_dict = {}
-    default_arguments = self._arguments.default_arguments
+    default_arguments = list(self._arguments.default_arguments.values())
     expected_length = len(default_arguments)
     real_length = len(default_args_sample)
+
+    default_args_count = len([item for item in default_arguments if item.default is not None])
 
     if not self._arguments.has_optional_default_argument and (default_args_sample is None or expected_length != real_length):
       raise ArgumentException("Command require {} positional argument(s), found {}".format(
         expected_length,
         real_length
       ))
-    elif self._arguments.has_optional_default_argument and default_args_sample is not None and real_length < expected_length - 1:
+    elif self._arguments.has_optional_default_argument and default_args_sample is not None and real_length < expected_length - default_args_count:
       raise ArgumentException("Command require {} or {} positional argument(s), found {}".format(
         expected_length,
-        expected_length - 1,
+        expected_length - default_args_count,
         real_length
       ))
 
@@ -274,11 +295,63 @@ class ModulesDiscovery(object):
     """
     :type command str
     """
-    return "{} [{}]\n\n".format(filename, "|".join(self.available_command_list))
+    "{} [{}]\n\n".format(filename, "|".join(self.available_command_list))
+    help_str = """Available commands:
+
+    """
+
+    command_list = self.available_command_list if command == "" else [command]
+
+    for command in command_list:
+      cmd_meta = self.get_command_metainfo(command)
+      """:type cmd_meta ModuleMetaInfo"""
+
+      if cmd_meta is None:
+        continue
+
+      args = {}
+      args.update(cmd_meta.get_arguments_builder().arguments)
+      args.update(cmd_meta.get_arguments_builder().default_arguments)
+
+      cmd_arguments_help = {name: value.item_help for name, value in args.items() if value.item_help}
+
+      if len(cmd_arguments_help) > 0:
+        help_str += """
+        {cmd} [{args}] - {cmd_help}
+
+        Argument details:
+        {arg_details}
+
+
+        """.format(
+          cmd=command,
+          args=" | ".join(cmd_arguments_help.keys()),
+          cmd_help = cmd_meta.help,
+          arg_details="\n".join(["{} - {}".format(k, v) for k, v in cmd_arguments_help.items()])
+        )
+
+      else:
+        help_str += """
+        {cmd} - {cmd_help}""".format(
+          cmd=command,
+          cmd_help=cmd_meta.help
+        )
+
+    return help_str
 
   @property
   def available_command_list(self):
     return list(self._modules.keys())
+
+  def get_command_metainfo(self, command):
+    """
+    :type command str
+    :rtype ModuleMetaInfo
+    """
+    if command not in self._modules:
+      return None
+
+    return self._modules[command]["metainfo"]
 
   def execute_command(self, default_arg_list=None, **kwargs):
     """
