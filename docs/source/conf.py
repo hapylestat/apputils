@@ -26,7 +26,7 @@ appcore_dir = "{basedir}{sep}..{sep}..{sep}".format(basedir=mydir, sep=os.path.s
 sys.path.insert(0, os.path.abspath(appcore_dir))
 sys.path.insert(1, os.path.abspath(appcore_dir + os.path.sep + "appcore"))
 
-from appcore.core import __name__, __version__, __author__, __author_mail__, __copyright__
+from apputils.core import __name__, __version__, __author__, __author_mail__, __copyright__
 
 
 # -- General configuration ------------------------------------------------

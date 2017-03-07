@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-core_module = __import__("appcore.core").core
+core_module = __import__("apputils.core").core
 app_name = core_module.__name__
 app_author = core_module.__author__
 app_author_mail = core_module.__author_mail__
