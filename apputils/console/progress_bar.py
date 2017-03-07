@@ -10,8 +10,8 @@
 import sys
 import time
 import os
-from appcore.console import get_terminal_size
-from appcore.utils import safe_format
+from apputils.console import get_terminal_size
+from apputils.utils import safe_format
 
 """
     Template description:

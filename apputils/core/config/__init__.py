@@ -5,8 +5,8 @@
 #
 # Copyright (c) 2015 Reishin <hapy.lestat@gmail.com>
 
-from appcore.core.config.ast import CommandLineAST
-from appcore.core.config.main import Configuration
+from apputils.core.config.ast import CommandLineAST
+from apputils.core.config.main import Configuration
 
 
 __all__ = ["CommandLineAST", "Configuration"]

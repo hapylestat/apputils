@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2015 Reishin <hapy.lestat@gmail.com>
 
-from appcore.console import ProgressBar, ProgressBarOptions, ProgressBarFormat, CharacterStyles
+from apputils.console import ProgressBar, ProgressBarOptions, ProgressBarFormat, CharacterStyles
 import time
 
 
@@ -58,7 +58,4 @@ do_status_progress(ProgressBar("", 20,
 do_status_progress(ProgressBar("Counting job", 20,
                                options=ProgressBarOptions(character_style=CharacterStyles.graphic,
                                                           progress_format=ProgressBarFormat.PROGRESS_FORMAT_STATUS)), hide=True)
-
-
-
 

@@ -5,7 +5,7 @@
 #
 # Copyright (c) 2015 Reishin <hapy.lestat@gmail.com>
 
-from appcore.core.logger import aLogger
+from apputils.core.logger import aLogger
 
 
 class CommandLineAST(object):

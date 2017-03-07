@@ -16,7 +16,7 @@ setup(
   url=app_url,
   author=app_author,
   author_email=app_author_mail,
-  description='Small framework for console applications',
+  description='Application modules swiss-knife',
   license='lGPL v3',
   zip_safe=False,
   packages=find_packages(exclude=package_excludes),
@@ -30,5 +30,6 @@ setup(
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3.4',
     'Programming Language :: Python :: 3.5',
+    'Programming Language :: Python :: 3.6'
   ],
 )

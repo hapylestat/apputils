@@ -5,15 +5,15 @@
 #
 # Copyright (c) 2016 Reishin <hapy.lestat@gmail.com>
 
-from appcore.core.singlobj import Singleton, SingletonObject
-from appcore.core.logger import aLogger
-from appcore.core.config import Configuration
-from appcore.core import config
+from apputils.core.singlobj import Singleton, SingletonObject
+from apputils.core.logger import aLogger
+from apputils.core.config import Configuration
+from apputils.core import config
 
 __name__ = "apputils"
 __version__ = "0.1.2.1"
 __author__ = "Dmytro Grinenko"
 __author_mail__ = "hapy.lestat@gmail.com"
 __url__ = "https://github.com/hapylestat/apputils"
-__copyright__ = "2016, {}".format(__author__)
+__copyright__ = "2017, {}".format(__author__)
 __all__ = ["Configuration", "config", "aLogger", "Singleton", "SingletonObject"]

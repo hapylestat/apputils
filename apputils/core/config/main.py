@@ -4,13 +4,14 @@
 # GNU Lesser General Public License for more details.
 #
 # Copyright (c) 2015 Reishin <hapy.lestat@gmail.com>
+
 import json
 import os
 import sys
 
-from appcore.core.logger import aLogger
+from apputils.core.logger import aLogger
 
-from appcore.core.config import CommandLineAST
+from apputils.core.config import CommandLineAST
 
 
 class Configuration(object):
