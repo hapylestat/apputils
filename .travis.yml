@@ -1,0 +1,14 @@
+language: python
+python:
+ - "2.7"
+ - "3.5"
+ - "3.6"
+install:
+ - ./prepare-build.sh
+ - python2.7 ./setup.py sdist
+ - python3.5 ./setup.py sdist
+ - python3.6 ./setup.py sdist
+ - twine upload ./dist/*
+branches:
+  only:
+    - production
