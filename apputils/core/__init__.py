@@ -11,7 +11,7 @@ from apputils.core.config import Configuration
 from apputils.core import config
 
 __name__ = "apputils"
-__version__ = "0.1.2.1"
+__version__ = "0.1.2.2"
 __author__ = "Dmytro Grinenko"
 __author_mail__ = "hapy.lestat@gmail.com"
 __url__ = "https://github.com/hapylestat/apputils"
