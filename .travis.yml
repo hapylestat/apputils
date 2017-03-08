@@ -1,7 +1,5 @@
 language: python
 python:
-  - "2.7"
-  - "3.5"
   - "3.6"
 before_install:
   - "export COMMIT_ID=\"$(git log --format=%H -n 1)\""
@@ -13,3 +11,5 @@ install:
 branches:
   only:
     - production
+script:
+  - echo "TODO"
