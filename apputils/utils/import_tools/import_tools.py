@@ -9,34 +9,8 @@ import os
 import sys
 from collections import OrderedDict
 
+from apputils.utils.import_tools import ArgumentException, ModuleArgumentItem, NoCommandException
 from apputils.core.config.main import Configuration
-
-
-class ArgumentException(Exception):
-  pass
-
-
-class NoCommandException(Exception):
-  pass
-
-
-class ModuleArgumentItem(object):
-  name = None
-  value_type = None
-  item_help = None
-  default = None
-
-  def __init__(self, name, value_type, item_help, default=None):
-    """
-    :type name str
-    :type value_type Type
-    :type item_help str
-    :type default Type
-    """
-    self.name = name
-    self.value_type = value_type
-    self.item_help = item_help
-    self.default = default
 
 
 class ModuleArgumentsBuilder(object):
@@ -388,45 +362,6 @@ class ModulesDiscovery(object):
     except ArgumentException as e:
       raise NoCommandException("Application arguments exception: {}\n".format(str(e)))
 
-  if sys.version_info >= (3, 4):
-    import asyncio
-
-    @asyncio.coroutine
-    def execute_command_async(self, default_arg_list=None, **kwargs):
-      """
-      :type default_arg_list list
-      :type kwargs dict
-      """
-      _custom_func_arguments = set()
-
-      if default_arg_list is None or len(default_arg_list) == 0:
-        raise NoCommandException("No command passed, unable to continue")
-
-      command_name = default_arg_list.pop(0)
-      if command_name not in self._modules.keys():
-        raise NoCommandException("No such command '{}' found, unable to continue".format(command_name))
-
-      command = self._modules[command_name]
-      entry_point = command["entry_point"]
-      class_path = command["classpath"]
-      metainfo = command["metainfo"]
-      """:type metainfo ModuleMetaInfo"""
-
-      try:
-        args = metainfo.parse_default_arguments(default_arg_list)
-        args.update(metainfo.parse_arguments(kwargs))
-
-        f_args = entry_point.__code__.co_varnames[:entry_point.__code__.co_argcount]
-
-        if len(f_args) - len(set(f_args) & _custom_func_arguments) != len(set(args.keys()) & set(f_args)):
-          raise ArgumentException("Function \"{}\" from module {} doesn't implement all arguments in the signature".format(
-            entry_point.__name__, class_path
-          ))
-
-        yield from entry_point(**args)
-      except ArgumentException as e:
-        raise NoCommandException("Application arguments exception: {}\n".format(str(e)))
-
   def main(self, configuration):
     """
     :type configuration Configuration
@@ -468,5 +403,3 @@ class ModulesDiscovery(object):
     except ArgumentException as e:
       sys.stdout.write("Application arguments exception: {}\n".format(str(e)))
       return
-
-

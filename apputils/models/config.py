@@ -5,8 +5,6 @@
 #
 # Copyright (c) 2016 Reishin <hapy.lestat@gmail.com>
 
-import types
-
 
 class ConfigObject(object):
   def __init__(self, serialized_obj=None, **kwargs):

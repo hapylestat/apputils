@@ -1,0 +1,23 @@
+{
+  "example_section": {
+    "colors_dict": {
+      "red": 1,
+      "blue": 2,
+      "yellow": 3
+    },
+    "colors_list": [
+      {
+        "name": "Red",
+        "value": 3
+      },
+      {
+        "name": "Blue",
+        "value": 2
+      },
+      {
+        "name": "Yellow",
+        "value": 1
+      }
+    ]
+  }
+}

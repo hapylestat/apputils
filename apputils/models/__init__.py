@@ -5,6 +5,6 @@
 #
 # Copyright (c) 2016 Reishin <hapy.lestat@gmail.com>
 
-from apputils.types.config import ConfigObject
+from apputils.models.config import ConfigObject
 
 __all__ = ["ConfigObject"]

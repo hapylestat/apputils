@@ -22,34 +22,32 @@ class Configuration(object):
   _main_config = "main.json"
   _json = None
 
-  def __init__(self, in_memory=False, config_location=None, config_name=None):
+  def __init__(self, in_memory=False, custom_cfg_path=None, config_name=None):
     """
     :arg in_memory Initialize Configuration instance in memory only
     :type in_memory bool
-    :type config_location str
+    :type custom_cfg_path str
     :type config_name str
+
+    Samples:
+
+       custom_cfg_path - "./test", "../test", "/root/path/to/test"
     """
-    self._location = os.path.dirname(sys.argv[0])
+    if sys.argv is not None and len(sys.argv) > 0:
+      self._location = os.path.dirname(sys.argv[0])
+      self._script = os.path.basename(sys.argv[0])
+
     if self._location.strip() == "":
       self._location = "."
 
-    if sys.argv is not None and len(sys.argv) > 0:
-      self._script = os.path.basename(sys.argv[0])
-
     self.__in_memory = bool(in_memory)
-
-    if self._location.endswith(__package__):
-      self._location = self._location[:-len(__package__) - 1]
-
     self._log = aLogger.getLogger(__name__, default_level=aLogger.Level.error)  # initial logger
-
     self._main_config = "main.json" if config_name is None else config_name
-
     _config_path = "{}/{}".format(self._location, self._config_path)
 
-    if config_location and len(config_location) > 0 and config_location[:2] == "..":
-      _config_path = "%s/%s/" % (self._location, config_location)
-    elif not config_location:
+    if custom_cfg_path and len(custom_cfg_path) > 0 and custom_cfg_path[:1] == ".":  # support both "./" & "../"
+      _config_path = "%s/%s/" % (self._location, custom_cfg_path)
+    elif not custom_cfg_path:
       _config_path = "%s/%s" % (self._location, self._config_path)
 
     self._config_path = os.path.abspath(_config_path.replace("/", os.path.sep))
@@ -149,31 +147,31 @@ class Configuration(object):
       return False
 
     node = self._json
-    path = path.split('.')
-    while len(path) > 0:
-      path_item = path.pop(0)
-      if path_item in node and len(path) == 0:
+    path_arr = path.split('.')
+    while len(path_arr) > 0:
+      path_item = path_arr.pop(0)
+      if path_item in node and len(path_arr) == 0:
         return True
-      elif path_item in node and len(path) > 0:
+      elif path_item in node and len(path_arr) > 0:
         node = node[path_item]
       else:
         return False
 
     return False
 
-  def get(self, path, default=None, check_type=None, module=None):
+  def get(self, path, default=None, check_type=None, module_name=None):
     """
     Get option property
 
     :param path: full path to the property with name
     :param default: default value if original is not present
     :param check_type: cast param to passed type, if fail, default will returned
-    :param module: get property from module name
+    :param module_name: get property from module name
     :return:
     """
     if self._json is not None:
       # process whole json or just concrete module
-      node = self._json if module is None else self.get_module_config(module)
+      node = self._json if module_name is None else self.get_module_config(module_name)
       path_data = path.split('.')
       try:
         while len(path_data) > 0:
@@ -210,7 +208,6 @@ class Configuration(object):
         return self._json["modules"][name]
     return None
 
-
 __conf = None
 
 
@@ -226,6 +223,6 @@ def get_instance(in_memory=False, config_path=None, config_name=None):
   global __conf
 
   if __conf is None:
-    __conf = Configuration(in_memory=in_memory, config_location=config_path, config_name=config_name)
+    __conf = Configuration(in_memory=in_memory, custom_cfg_path=config_path, config_name=config_name)
 
   return __conf
