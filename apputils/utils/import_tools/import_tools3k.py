@@ -11,6 +11,7 @@ from apputils.utils.import_tools.import_tools import ModulesDiscovery
 
 __all__ = ["ModulesDiscovery3k"]
 
+
 class ModulesDiscovery3k(ModulesDiscovery):
   import asyncio
 

@@ -7,12 +7,13 @@
 
 import sys
 from apputils.utils.import_tools.generic import ArgumentException, ModuleArgumentItem, NoCommandException
-
+from apputils.utils.import_tools.import_tools import ModuleMetaInfo, ModuleArgumentsBuilder
 
 if sys.version_info >= (3, 4):
-  from apputils.utils.import_tools.import_tools3k import ModulesDiscovery3k as ModuleDiscovery
+  from apputils.utils.import_tools.import_tools3k import ModulesDiscovery3k as ModulesDiscovery
 else:
   from apputils.utils.import_tools.import_tools import ModulesDiscovery
 
 
-__all__ = ["ArgumentException", "ModuleArgumentItem", "NoCommandException", "ModulesDiscovery"]
+__all__ = ["ArgumentException", "ModuleArgumentItem", "NoCommandException", "ModulesDiscovery", "ModuleMetaInfo",
+           "ModuleArgumentsBuilder"]
