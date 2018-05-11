@@ -7,7 +7,7 @@
 
 
 __name__ = "apputils"
-__version__ = "0.1.3.dev0"
+__version__ = "0.1.3.dev1"
 __author__ = "Dmytro Grinenko"
 __author_mail__ = "hapy.lestat@gmail.com"
 __url__ = "https://github.com/hapylestat/apputils"
