@@ -77,11 +77,9 @@ class Configuration(object):
         f.close()
         return content
       except Exception as err:
-        self._log.error("Error in opening config file: %s", err)
         raise err
     else:
-      self._log.error("File not found: %s", config_filename)
-      raise IOError("File not found: %s" % config_filename)
+      raise IOError("File not found: {}".format(config_filename))
 
   def load(self):
     """
@@ -92,7 +90,6 @@ class Configuration(object):
         self._json = json.loads(self._load_from_configs(self._main_config))
         # ToDo: make this via extension for root logger
         # self._log = aLogger.getLogger(__name__, cfg=self)  # reload logger using loaded configuration
-        self._log.info("Loaded main settings: %s", self._main_config)
         self._load_modules()
       else:
         self._json = {}
@@ -100,8 +97,7 @@ class Configuration(object):
       self._load_from_commandline()
     except Exception as err:
       self._json = None
-      self._log.error("Error in parsing or open config file: %s", err)
-      raise err
+      raise
 
   def _load_modules(self):
     """
@@ -126,12 +122,9 @@ class Configuration(object):
         try:
           json_data = json.loads(self._load_from_configs(self._json["modules"][item]))
           self._json["modules"][item] = json_data
-          self._log.info("Loaded module settings: %s", item)
         except Exception as err:
-          self._log.error("Couldn't load module %s configuration from %s: %s",
-                          item,
-                          self._json["modules"][item],
-                          err)
+          raise FileNotFoundError("Couldn't load module {} configuration from {}: {}".format(
+                          item, self._json["modules"][item], err))
 
   def _load_from_commandline(self):
     ast = CommandLineAST(list(sys.argv), self._json)
@@ -183,18 +176,14 @@ class Configuration(object):
           return node
       except KeyError:
         if default is not None:
-          self._log.warning("Key %s not present, using default %s" % (path, default))
           return default
         else:
-          self._log.error("Key %s not present" % path)
-          raise KeyError
+          raise KeyError("Key {} not present".format(path))
       except ValueError:
         if default is not None:
-          self._log.warning("Key %s has a wrong format, using default %s" % (path, default))
           return default
         else:
-          self._log.error("Key %s has a wrong format" % path)
-          raise KeyError
+          raise KeyError("Key {} has a wrong format".format(path))
     else:
       return ""
 
@@ -202,7 +191,6 @@ class Configuration(object):
     """
      Return module configuration loaded from separate file or None
     """
-    self._log.debug("Getting module configuration %s", name)
     if self.exists("modules"):
       if name in self._json["modules"] and not isinstance(self._json["modules"][name], str):
         return self._json["modules"][name]
