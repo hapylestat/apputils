@@ -13,7 +13,11 @@ app_url = core_module.__url__
 package_excludes = ("examples",)
 
 
-README_PATH = os.path.join(os.path.dirname(__file__), "README.md")
+README_PATH_MD = os.path.join(os.path.dirname(__file__), "README.md")
+README_PATH_RST = os.path.join(os.path.dirname(__file__), "README.rst")
+
+README_PATH = README_PATH_RST if os.path.exists(README_PATH_RST) else README_PATH_MD
+print("Using {} for the description: ", os.path.basename(README_PATH))
 
 with open(README_PATH, "r") as f:
   readme_content = f.read()
