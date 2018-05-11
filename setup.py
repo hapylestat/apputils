@@ -15,7 +15,7 @@ package_excludes = ("examples",)
 
 README_PATH = os.path.join(os.path.dirname(__file__), "README.md")
 
-with open("README.MD", "r") as f:
+with open(README_PATH, "r") as f:
   readme_content = f.read()
 
 setup(
