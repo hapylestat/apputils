@@ -2,12 +2,12 @@ from setuptools import find_packages, setup
 import os
 
 
-core_module = __import__("apputils")
-app_name = core_module.__name__
-app_author = core_module.__author__
-app_author_mail = core_module.__author_mail__
-app_ver = core_module.__version__
-app_url = core_module.__url__
+app_utils = __import__("apputils")
+app_name = app_utils.__name__
+app_author = app_utils.__author__
+app_author_mail = app_utils.__author_mail__
+app_ver = app_utils.__version__
+app_url = app_utils.__url__
 
 
 package_excludes = ("examples",)

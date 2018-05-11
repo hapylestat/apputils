@@ -34,7 +34,6 @@ class CommandLineAST(object):
 
     if len(self.__args) >= 1:
       self.__args.pop(0)
-      self._log.info("Passed commandline arguments: %s", self.__args)
 
     for param in self.__args:
       if self._is_default_arg(param):
@@ -60,12 +59,10 @@ class CommandLineAST(object):
 
   def __set_node(self, node, key, value):
     if not isinstance(node, dict):
-      self._log.error("Invalid assignment to {0}", key)
-      return
+      raise TypeError("Invalid assignment to {0}".format(key))
 
     if key in node and isinstance(node[key], dict) and not isinstance(value, dict):
-      self._log.error("Invalid assignment to {0}", key)
-      return
+      raise TypeError("Invalid assignment to {0}".format(key))
 
     node[key] = value
 
@@ -74,10 +71,8 @@ class CommandLineAST(object):
     :argument param tuple which represents arg name, delimiter, arg value
     :type param tuple
     """
-    self._log.debug("Parse param \'%s\' with value \'%s\'", param[0], param[2])
     keys = param[0].split('.')
     if len(keys) == 1:  # parse root element
-      self._log.debug("Replacing param \'%s\' to value \'%s\'", keys[0], param[2])
       self.__set_node(self.__out_tree, keys[0], param[2])
     elif len(keys) > 0:
       item = self.__out_tree
@@ -92,7 +87,6 @@ class CommandLineAST(object):
         elif key in item and isinstance(item, dict):
           item = item[key]
         else:
-          self._log.error("Couldn't recognise parameter \'%s\'", param[0])
           break
     else:
-      self._log.error("Couldn't recognise parameter \'%s\'", param[0])
+      raise TypeError("Couldn't recognise parameter \'{}\'".format(param[0]))
