@@ -5,7 +5,7 @@
 #
 # Copyright (c) 2015 Reishin <hapy.lestat@gmail.com>
 
-from apputils.core.logger import aLogger
+import logging
 
 
 class CommandLineAST(object):
@@ -18,7 +18,7 @@ class CommandLineAST(object):
     :type args list
     """
     self.__default_arg_tag = "default"
-    self._log = aLogger.getLogger(self.__class__.__name__, default_level=aLogger.Level.error)
+    self._log = logging.Logger(CommandLineAST.__class__.__name__)
     self.__args = list(args)
     self.__out_tree = out_tree
 

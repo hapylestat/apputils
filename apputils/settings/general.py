@@ -9,9 +9,8 @@ import json
 import os
 import sys
 
-from apputils.core.logger import aLogger
-
-from apputils.core.config import CommandLineAST
+import logging
+from apputils.settings import CommandLineAST
 
 
 class Configuration(object):
@@ -41,7 +40,7 @@ class Configuration(object):
       self._location = "."
 
     self.__in_memory = bool(in_memory)
-    self._log = aLogger.getLogger(__name__, default_level=aLogger.Level.error)  # initial logger
+    self._log = logging.Logger(__name__)
     self._main_config = "main.json" if config_name is None else config_name
     _config_path = "{}/{}".format(self._location, self._config_path)
 
@@ -91,7 +90,8 @@ class Configuration(object):
     try:
       if not self.__in_memory:
         self._json = json.loads(self._load_from_configs(self._main_config))
-        self._log = aLogger.getLogger(__name__, cfg=self)  # reload logger using loaded configuration
+        # ToDo: make this via extension for root logger
+        # self._log = aLogger.getLogger(__name__, cfg=self)  # reload logger using loaded configuration
         self._log.info("Loaded main settings: %s", self._main_config)
         self._load_modules()
       else:

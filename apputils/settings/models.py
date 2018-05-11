@@ -6,7 +6,39 @@
 # Copyright (c) 2016 Reishin <hapy.lestat@gmail.com>
 
 
-class ConfigObject(object):
+class BaseConfigView(object):
+  """
+   BaseConfigView is a basic class, which providing Object to Dict, Dict to Object conversion with
+   basic fields validation.
+
+   Should be subclassed for proper usage. For example we have such dictionary:
+
+   my_dict = {
+     name: "Amy",
+     age: 18
+   }
+
+   and we want to convert this to the object with populated object fields by key:value pairs from dict.
+   For that we need to declare object view and describe there expected fields:
+
+   class PersonView(BaseConfigView):
+     name = None
+     age = None
+
+    Instead of None, we can assign another values, they would be used as default if  data dict will not contain
+     such fields.  Now it's time for conversion:
+
+    person = PersonView(serialized_obj=my_dict)
+
+
+
+    As second way to initialize view, view fields could be directly passed as constructor arguments:
+
+    person = PersonView(name=
+
+
+  """
+
   def __init__(self, serialized_obj=None, **kwargs):
     """
     :type tree dict
@@ -46,10 +78,10 @@ class ConfigObject(object):
     """
     for item in dir(self):
       attr = self.__getattribute__(item)
-      if item[:2] != "__" and self.__isclass(attr) and issubclass(attr, ConfigObject):
+      if item[:2] != "__" and self.__isclass(attr) and issubclass(attr, BaseConfigView):
         self.__setattr__(item, None)
       elif item[:2] != "__" and isinstance(attr, list) and len(attr) == 1 and \
-        self.__isclass(attr[0]) and issubclass(attr[0], ConfigObject):
+        self.__isclass(attr[0]) and issubclass(attr[0], BaseConfigView):
         self.__setattr__(item, [])
 
   def deserialize(self, d):
@@ -61,7 +93,7 @@ class ConfigObject(object):
         if k not in self.__class__.__dict__:
           raise RuntimeError(self.__class__.__name__ + " doesn't contain property " + k)
         attr_type = self.__class__.__dict__[k]
-        if isinstance(attr_type, list) and len(attr_type) > 0 and issubclass(attr_type[0], ConfigObject):
+        if isinstance(attr_type, list) and len(attr_type) > 0 and issubclass(attr_type[0], BaseConfigView):
           obj_list = []
           if isinstance(v, list):
             for vItem in v:
@@ -69,7 +101,7 @@ class ConfigObject(object):
           else:
             obj_list.append(attr_type[0](v))
           self.__setattr__(k, obj_list)
-        elif self.__isclass(attr_type) and issubclass(attr_type, ConfigObject):
+        elif self.__isclass(attr_type) and issubclass(attr_type, BaseConfigView):
           self.__setattr__(k, attr_type(v))
         else:
           self.__setattr__(k, v)
@@ -91,16 +123,16 @@ class ConfigObject(object):
         if isinstance(v, list) and len(v) > 0:
           v_result = []
           for v_item in v:
-            if issubclass(v_item.__class__, ConfigObject):
+            if issubclass(v_item.__class__, BaseConfigView):
               v_result.append(v_item.serialize())
-            elif issubclass(v_item, ConfigObject):
+            elif issubclass(v_item, BaseConfigView):
               v_result.append(v_item().serialize())
             else:
               v_result.append(v_item)
           ret[k] = v_result
-        elif issubclass(v.__class__, ConfigObject):  # here we have instance of an class
+        elif issubclass(v.__class__, BaseConfigView):  # here we have instance of an class
           ret[k] = v.serialize()
-        elif self.__isclass(v) and issubclass(v, ConfigObject):  # here is an class itself
+        elif self.__isclass(v) and issubclass(v, BaseConfigView):  # here is an class itself
           ret[k] = v().serialize()
         else:
           ret[k] = v

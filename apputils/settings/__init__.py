@@ -5,11 +5,13 @@
 #
 # Copyright (c) 2015 Reishin <hapy.lestat@gmail.com>
 
-from apputils.core.config.ast import CommandLineAST
-from apputils.core.config.main import Configuration
+
+from .ast import CommandLineAST
+from .general import Configuration
+from .models import BaseConfigView
 
 
-__all__ = ["CommandLineAST", "Configuration"]
+__all__ = ["CommandLineAST", "Configuration", "BaseConfigView"]
 
 
 class ModuleHelpItem(object):

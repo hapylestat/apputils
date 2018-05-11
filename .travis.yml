@@ -11,5 +11,6 @@ install:
 branches:
   only:
     - production
+    - master
 script:
   - echo "TODO"

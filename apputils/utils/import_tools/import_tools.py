@@ -9,8 +9,8 @@ import os
 import sys
 from collections import OrderedDict
 
+from apputils.settings import Configuration
 from apputils.utils.import_tools import ArgumentException, ModuleArgumentItem, NoCommandException
-from apputils.core.config.main import Configuration
 
 
 class ModuleArgumentsBuilder(object):

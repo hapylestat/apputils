@@ -1,21 +1,20 @@
 
 
-from apputils.core.config import Configuration
-from apputils.models.config import ConfigObject
+from apputils.settings import Configuration, BaseConfigView
 
 
-class ColorsDict(ConfigObject):
+class ColorsDict(BaseConfigView):
   red = 0
   blue = 0
   yellow = 0
 
 
-class ColorListItem(ConfigObject):
+class ColorListItem(BaseConfigView):
   name = None
   value = None
 
 
-class SampleModel(ConfigObject):
+class SampleModel(BaseConfigView):
   colors_dict = ColorsDict
   colors_list = [ColorListItem]
 
@@ -35,6 +34,7 @@ def main():
 
   for obj in sample.colors_list:
     print("{}: {}".format(obj.name, obj.value))
+
 
 if __name__ == '__main__':
   main()
