@@ -4,17 +4,15 @@ python:
 before_install:
   - "export COMMIT_ID=\"$(git log --format=%H -n 1)\""
   - "export COMMIT_MSG=\"$(git log --format=%B -n 1)\""
+  - "export GIT_BRANCH=\"git rev-parse --abbrev-ref HEAD\""
 install:
-  - pandoc --from=markdown --to=rst --output=README.rst README.md
-  - pip install twine
+  - pip install twine==1.11.0 setuptools==39.2.0 wheel==0.31.1
   - python ./setup.py sdist
   - twine upload --repository pypi --username ${USER} --password ${PASS} --comment "${COMMIT_MSG} (${COMMIT_ID})" --skip-existing ./dist/*
 branches:
   only:
     - production
+    - testing
     - master
 script:
   - echo "TODO"
-addons:
-  apt_packages:
-    - pandoc
