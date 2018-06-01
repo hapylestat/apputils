@@ -6,7 +6,7 @@ import os
 
 def get_version():
   for i in os.environ:
-    print(f"{i}: {os.environ}")
+    print(f"{i}: {os.environ[i]}")
 
   app_version_module = __import__("apputils.version").version
   app_ver = app_version_module.__version__
