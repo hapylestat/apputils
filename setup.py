@@ -5,6 +5,11 @@ import os
 # versioning  https://www.python.org/dev/peps/pep-0440/
 
 def get_version():
+  for i in os.environ:
+    print(i)
+
+  import sys
+  sys.exit(1)
   app_version_module = __import__("apputils.version").version
   app_ver = app_version_module.__version__
 
