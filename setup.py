@@ -12,11 +12,11 @@ def get_version():
   commit_msg = os.environ['COMMIT_MSG'] if 'COMMIT_MSG' in os.environ else None
 
   if 'GIT_BRANCH' in os.environ and os.environ['GIT_BRANCH'] == "master":
-    app_ver = f"{app_ver}a.dev{build_number}"
+    app_ver = f"{app_ver}dev{build_number}"
   elif commit_msg and '[RC]' in commit_msg:
-    app_ver = f"{app_ver}rc.dev{build_number}"
+    app_ver = f"{app_ver}rc{build_number}"
   elif 'GIT_BRANCH' in os.environ and os.environ['GIT_BRANCH'] == "testing":
-    app_ver = f"{app_ver}b.dev{build_number}"
+    app_ver = f"{app_ver}b{build_number}"
   elif 'GIT_BRANCH' in os.environ and os.environ['GIT_BRANCH'] == "production":
     app_ver = f"{app_ver}.{build_number}"
 
