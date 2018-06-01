@@ -20,9 +20,6 @@ def get_version():
   elif 'GIT_BRANCH' in os.environ and os.environ['GIT_BRANCH'] == "production":
     app_ver = f"{app_ver}.{build_number}"
 
-  print(f"{build_number}; {commit_msg}; {app_ver}")
-  import sys
-  sys.exit(1)
   return app_ver
 
 
