@@ -5,9 +5,6 @@ import os
 # versioning  https://www.python.org/dev/peps/pep-0440/
 
 def get_version():
-  for i in os.environ:
-    print(f"{i}: {os.environ[i]}")
-
   app_version_module = __import__("apputils.version").version
   app_ver = app_version_module.__version__
 
@@ -23,7 +20,7 @@ def get_version():
   elif 'GIT_BRANCH' in os.environ and os.environ['GIT_BRANCH'] == "production":
     app_ver = f"{app_ver}.{build_number}"
 
-  print(f"{build_number}; {commit_msg}; {app_ver}")
+  print(f"{build_number}; {commit_msg}; {app_ver}; {os.environ['GIT_BRANCH']}")
   import sys
   sys.exit(1)
   return app_ver
