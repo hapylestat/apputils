@@ -8,7 +8,7 @@ before_install:
 install:
   - pip install twine==1.11.0 setuptools==39.2.0 wheel==0.31.1
   - python ./setup.py sdist
-  - twine upload --repository pypi --username ${USER} --password ${PASS} --comment "${COMMIT_MSG} (${COMMIT_ID})" --skip-existing ./dist/*
+  - twine upload --repository pypi --username ${TWINE_USERNAME} --password ${TWINE_PASS} --comment "${COMMIT_MSG} (${COMMIT_ID})" --skip-existing ./dist/*
 branches:
   only:
     - production
