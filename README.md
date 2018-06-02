@@ -1,4 +1,4 @@
-# appcore  [![Documentation Status](https://readthedocs.org/projects/appcore/badge/?version=latest)](http://appcore.readthedocs.io/en/latest/?badge=latest)
+# appcore  [![Build Status](https://travis-ci.org/hapylestat/apputils.svg?branch=master)](https://travis-ci.org/hapylestat/apputils) [![Documentation Status](https://readthedocs.org/projects/appcore/badge/?version=latest)](http://appcore.readthedocs.io/en/latest/?badge=latest)
 Core modules for python application.
 
 Provides possibility to:
