@@ -5,9 +5,9 @@
 #
 # Copyright (c) 2017 Reishin <hapy.lestat@gmail.com>
 
-__name__ = "apputils"
 __author__ = "Dmitry Grinenko"
 __author_mail__ = "hapy.lestat@gmail.com"
 __url__ = "https://github.com/hapylestat/apputils"
 __copyright__ = "2018, {}".format(__author__)
 
+__path__ = __import__('pkgutil').extend_path(__path__, __name__)

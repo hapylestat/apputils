@@ -26,8 +26,11 @@ def get_version():
 def get_long_description():
   readme_path = os.path.join(os.path.dirname(__file__), "README.md")
 
-  with open(readme_path, "r") as f:
-    readme_content = f.read()
+  try:
+    with open(readme_path, "r") as f:
+      readme_content = f.read()
+  except FileNotFoundError:
+    readme_content = ""
 
   return readme_content
 
@@ -40,7 +43,7 @@ app_version = get_version()
 app_url = app_utils.__url__
 
 
-package_excludes = ("examples",)
+package_excludes = {"examples", "tests"}
 
 
 setup(
@@ -60,8 +63,6 @@ setup(
   classifiers=[
     'Operating System :: OS Independent',
     'Programming Language :: Python',
-    'Programming Language :: Python :: 2',
-    'Programming Language :: Python :: 2.7',
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3.6'
   ],

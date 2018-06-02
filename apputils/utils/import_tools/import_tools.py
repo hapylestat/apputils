@@ -9,7 +9,6 @@ import os
 import sys
 from collections import OrderedDict
 
-from apputils.settings import Configuration
 from apputils.utils.import_tools import ArgumentException, ModuleArgumentItem, NoCommandException
 
 
@@ -179,7 +178,7 @@ class ModuleMetaInfo(object):
 
   def parse_arguments(self, conf):
     """
-    :type conf Configuration|dict
+    :type conf apputils.settings.Configuration|dict
     """
     parsed_arguments_dict = {}
     arguments = self._arguments.arguments
@@ -300,7 +299,7 @@ class ModulesDiscovery(object):
         """.format(
           cmd=command,
           args=" | ".join(cmd_arguments_help.keys()),
-          cmd_help = cmd_meta.help,
+          cmd_help=cmd_meta.help,
           arg_details="\n".join(["{} - {}".format(k, v) for k, v in cmd_arguments_help.items()])
         )
 

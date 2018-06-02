@@ -181,8 +181,6 @@ def __detect_str_type(data):
 
 
 def __parse_content(data):
-  response_data = data
-  response_headers = {}
   if isinstance(data, dict) or isinstance(data, list) or isinstance(data, set) or isinstance(data, tuple):
     response_data = __encode_str(json.dumps(data))
     response_headers = {"Content-Type": "application/json; charset=UTF-8"}

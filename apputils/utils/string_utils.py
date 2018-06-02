@@ -32,4 +32,3 @@ def safe_format_sh(s, **kwargs):
     s = s.replace("{{" + item + "}}", kwargs[item])
 
   return s
-

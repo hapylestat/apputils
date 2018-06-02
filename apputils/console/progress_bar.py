@@ -296,4 +296,3 @@ class ProgressBar(object):
       self.progress(int(self._max), new_status=new_status)
 
     self.stdout.write(os.linesep)
-

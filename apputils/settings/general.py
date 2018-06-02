@@ -123,8 +123,7 @@ class Configuration(object):
           json_data = json.loads(self._load_from_configs(self._json["modules"][item]))
           self._json["modules"][item] = json_data
         except Exception as err:
-          raise FileNotFoundError("Couldn't load module {} configuration from {}: {}".format(
-                          item, self._json["modules"][item], err))
+          raise FileNotFoundError("Couldn't load module {} configuration from {}: {}".format(item, self._json["modules"][item], err))
 
   def _load_from_commandline(self):
     ast = CommandLineAST(list(sys.argv), self._json)
@@ -195,6 +194,7 @@ class Configuration(object):
       if name in self._json["modules"] and not isinstance(self._json["modules"][name], str):
         return self._json["modules"][name]
     return None
+
 
 __conf = None
 

@@ -8,10 +8,9 @@
 
 from .ast import CommandLineAST
 from .general import Configuration
-from .models import BaseConfigView
 
 
-__all__ = ["CommandLineAST", "Configuration", "BaseConfigView"]
+__all__ = ["CommandLineAST", "Configuration"]
 
 
 class ModuleHelpItem(object):
