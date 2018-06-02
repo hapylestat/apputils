@@ -1,4 +1,4 @@
-# appcore  [![Build Status](https://travis-ci.org/hapylestat/apputils.svg?branch=master)](https://travis-ci.org/hapylestat/apputils) [![Documentation Status](https://readthedocs.org/projects/appcore/badge/?version=latest)](http://appcore.readthedocs.io/en/latest/?badge=latest)
+# appcore  [![Build Status](https://travis-ci.org/hapylestat/apputils.svg?branch=master)](https://travis-ci.org/hapylestat/apputils) [![Build status](https://ci.appveyor.com/api/projects/status/b05q135hu7tq4v68/branch/master?svg=true)](https://ci.appveyor.com/project/hapylestat/apputils/branch/master) [![Documentation Status](https://readthedocs.org/projects/appcore/badge/?version=latest)](http://appcore.readthedocs.io/en/latest/?badge=latest) [![Coverage Status](https://coveralls.io/repos/github/hapylestat/apputils/badge.svg?branch=master)](https://coveralls.io/github/hapylestat/apputils?branch=master)
 Core modules for python application.
 
 Provides possibility to:
@@ -14,26 +14,9 @@ Even more come !
 
 # How to connect to your Project
 
-pip install git+https://github.com/hapylestat/appcore.git
+pip install apputils
 
 # How to use
 
-test.py
-```
-from appcore.core import config
+ToDo: would be available soon
 
-
-def main():
-   conf = config.get_instance(in_memory=True)
-   print(conf.get("main.arg", check_type=str, default="main argument"))
-
-if __name__ == "__main__":
-    main()
-
-```
-
-Console:
-```
-# python test.py main.arg=test
-test
-```
