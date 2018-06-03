@@ -23,7 +23,6 @@ def safe_format(s, **kwargs):
 def safe_format_sh(s, **kwargs):
   """
   :type s str
-  :type kwargs dict
   """
 
   to_replace = set(kwargs.keys()) & set(FORMAT_RE.findall(s))

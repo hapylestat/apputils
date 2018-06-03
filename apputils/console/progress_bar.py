@@ -1,4 +1,5 @@
 # coding=utf-8
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -10,7 +11,8 @@
 import sys
 import time
 import os
-from apputils.console import get_terminal_size
+from enum import Enum
+from shutil import get_terminal_size
 from apputils.utils import safe_format
 
 """
@@ -31,29 +33,33 @@ from apputils.utils import safe_format
 """
 
 
-class ProgressBarFormat(object):
+class ProgressBarFormat(Enum):
   PROGRESS_FORMAT_DEFAULT = "{begin_line}{text} {percents_done:>3}% [{filled}{empty}] {value}/{max}  {items_per_sec} i/s"
   PROGRESS_FORMAT_SHORT = "{begin_line}{text} {percents_done:>3}% [{filled}{empty}] {value}/{max}"
   PROGRESS_FORMAT_SIMPLE = "{begin_line}{text} [{filled}{empty}] {percents_done:>3}%"
+  PROGRESS_FORMAT_SIMPLE_BORDERLESS = "{begin_line}{text} {filled}{empty} {percents_done:>3}%"
   PROGRESS_FORMAT_STATUS = "{begin_line}{text}: |{filled}{empty}| {percents_done:>3}%  {value}/{max}   [{status}]{end_line}"
   PROGRESS_FORMAT_STATUS_SIMPLE = "{begin_line}|{filled}{empty}| {percents_done:>3}%   [{status}]{end_line}"
   PROGRESS_FORMAT_INFINITE_SIMPLE = "{begin_line} {filled}{empty} [text] {empty}{reverse_filled}"
 
 
-class CharacterStyles(object):
+class CharacterStyles(Enum):
   default = (" ", "=")
   simple = ("-", "#")
   graphic = ("░", "█")
+  graphic1 = ("▱", "▰")
+  graphic2 = ("▯", "▮")
+  graphic3 = ("⬜", "⬛")
 
 
 class ProgressBarOptions(object):
   def __init__(self, character_style=CharacterStyles.default, progress_format=ProgressBarFormat.PROGRESS_FORMAT_DEFAULT):
     """
-    :type character_style tuple
-    :type progress_format str
+    :type character_style CharacterStyles
+    :type progress_format ProgressBarFormat
     """
-    self._fill_char = character_style[1]
-    self._blank_char = character_style[0]
+    self._fill_char = character_style.value[1]
+    self._blank_char = character_style.value[0]
     self._progress_format = progress_format
 
   @property
@@ -254,7 +260,7 @@ class ProgressBar(object):
       "percents_done": percent_done
     }
 
-    self.stdout.write(safe_format(self._options.progress_format, **kwargs))
+    self.stdout.write(safe_format(self._options.progress_format.value, **kwargs))
     self.stdout.flush()
 
   def progress_inc(self, step=1, new_status=None):

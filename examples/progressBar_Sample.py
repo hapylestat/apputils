@@ -10,20 +10,6 @@ from apputils.console import ProgressBar, ProgressBarOptions, ProgressBarFormat,
 import time
 
 
-def do_progress(p, hide=False):
-  """
-  :type p ProgressBar
-  :type hide bool
-  """
-  p.start(4)
-
-  for i in range(0, 10):
-    p.progress_inc()
-    time.sleep(1)
-
-  p.stop(hide_progress=hide)
-
-
 def do_status_progress(p, hide=False):
   """
   :type p ProgressBar
@@ -31,31 +17,23 @@ def do_status_progress(p, hide=False):
   """
   p.start(10)
 
-  for i in range(1, 10):
+  for i in range(1, 60):
     p.progress_inc(new_status="count %s" % i)
-    time.sleep(0.5)
+    time.sleep(0.1)
 
   p.stop(hide_progress=hide, new_status="done")
 
 
-do_progress(ProgressBar("Infinite bar", 40, options=ProgressBarOptions(progress_format=ProgressBarFormat.PROGRESS_FORMAT_INFINITE_SIMPLE)))
+test_suites = [
+  ("Infinite bar", 40, ProgressBarOptions(progress_format=ProgressBarFormat.PROGRESS_FORMAT_INFINITE_SIMPLE, character_style=CharacterStyles.graphic3), False),
+  ("Some progress", 60, ProgressBarOptions(), True),
+  ("Short progress bar", 40, ProgressBarOptions(progress_format=ProgressBarFormat.PROGRESS_FORMAT_SHORT), False),
+  ("Default progress bar", 60, ProgressBarOptions(character_style=CharacterStyles.simple, progress_format=ProgressBarFormat.PROGRESS_FORMAT_SIMPLE), False),
+  ("Counting job", 20, ProgressBarOptions(character_style=CharacterStyles.graphic1, progress_format=ProgressBarFormat.PROGRESS_FORMAT_SIMPLE_BORDERLESS), False),
+  ("", 20, ProgressBarOptions(character_style=CharacterStyles.simple, progress_format=ProgressBarFormat.PROGRESS_FORMAT_STATUS_SIMPLE), False),
+  ("Counting job", 20, ProgressBarOptions(character_style=CharacterStyles.graphic, progress_format=ProgressBarFormat.PROGRESS_FORMAT_STATUS), True)
+]
 
-do_progress(ProgressBar("Some progress", 60), True)
 
-do_progress(ProgressBar("Short progress bar", 40, options=ProgressBarOptions(progress_format=ProgressBarFormat.PROGRESS_FORMAT_SHORT)))
-
-do_progress(ProgressBar("Default progress bar", 60,
-                        options=ProgressBarOptions(character_style=CharacterStyles.simple,
-                                                   progress_format=ProgressBarFormat.PROGRESS_FORMAT_SIMPLE)))
-do_status_progress(ProgressBar("Counting job", 20,
-                               options=ProgressBarOptions(character_style=CharacterStyles.simple,
-                                                          progress_format=ProgressBarFormat.PROGRESS_FORMAT_STATUS)))
-
-do_status_progress(ProgressBar("", 20,
-                               options=ProgressBarOptions(character_style=CharacterStyles.simple,
-                                                          progress_format=ProgressBarFormat.PROGRESS_FORMAT_STATUS_SIMPLE)))
-
-do_status_progress(ProgressBar("Counting job", 20,
-                               options=ProgressBarOptions(character_style=CharacterStyles.graphic,
-                                                          progress_format=ProgressBarFormat.PROGRESS_FORMAT_STATUS)), hide=True)
-
+for suite in test_suites:
+  do_status_progress(ProgressBar(suite[0], suite[1], options=suite[2]), hide=suite[3])
