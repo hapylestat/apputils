@@ -5,37 +5,29 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 #
-# Copyright (c) 2015 Reishin <hapy.lestat@gmail.com>
+# Copyright (c) 2018 Reishin <hapy.lestat@gmail.com>
 
-import logging
 
+# spy notation sample:
+#  http://docopt.org/
+#  https://softwareengineering.stackexchange.com/questions/307467/what-are-good-habits-for-designing-command-line-arguments
 
 class CommandLineAST(object):
-  def __init__(self, args, out_tree):
-    """
-    :arg args List of arguments to parse
-    :arg out_tree Hash map tree, already initialized at least with root element
+  """
+  Command line samples:
 
-    :type out_tree dict
-    :type args list
-    """
-    self.__default_arg_tag = "default"
-    self._log = logging.Logger(CommandLineAST.__class__.__name__)
-    self.__args = list(args)
-    self.__out_tree = out_tree
+  app.py [default arguments
+  """
+  def __init__(self):
+    self.__ast_tree = {}
 
-  def parse(self):
+  def parse(self, argv):
     """
     Parse command line to out tree
+
+    :type argv list
     """
-    if self.__out_tree is None:
-      raise RuntimeError("Could'n use empty out tree as ast storage")
-
-    if isinstance(self.__out_tree, dict):
-      self.__out_tree[self.__default_arg_tag] = []
-
-    if len(self.__args) >= 1:
-      self.__args.pop(0)
+    args = list(argv)
 
     for param in self.__args:
       if self._is_default_arg(param):

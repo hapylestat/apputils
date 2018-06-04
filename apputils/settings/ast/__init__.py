@@ -5,11 +5,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 #
-# Copyright (c) 2015 Reishin <hapy.lestat@gmail.com>
+# Copyright (c) 2018 Reishin <hapy.lestat@gmail.com>
 
 
-from .cmd_ast import CommandLineAST
-from .general import Configuration
+from .cmd import CommandLineAST
 
-
-__all__ = ["CommandLineAST", "Configuration"]
+__all__ = ["CommandLineAST"]
