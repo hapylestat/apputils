@@ -12,6 +12,124 @@
 #  http://docopt.org/
 #  https://softwareengineering.stackexchange.com/questions/307467/what-are-good-habits-for-designing-command-line-arguments
 
+
+class DefaultLanguage(object):
+  """
+   Arguments rule definition:
+   { name, type, delimiter, value delimiter}
+  """
+
+  argument_types = {
+    "long": "--",
+    "short": "-",
+    "default": None
+  }
+
+  value_delimiters = {
+    "short": [" "],
+    "long": ["=", " "],
+    "default": []
+  }
+
+
+class AbstractTokenizer(object):
+
+  @classmethod
+  def language_definition(cls):
+    raise NotImplementedError()
+
+  @classmethod
+  def tokenize(cls, obj):
+    """
+    :type obj object
+    """
+    raise NotImplementedError()
+
+  @classmethod
+  def make_iterable(cls, obj):
+    """
+    :type obj object
+    """
+    raise NotImplementedError()
+
+
+class DefaultTokenizer(AbstractTokenizer):
+
+  @classmethod
+  def language_definition(cls):
+    """
+    :rtype DefaultLanguage
+    """
+    return DefaultLanguage
+
+  @classmethod
+  def tokenize(cls, obj):
+    """
+    Convert input data to tokens
+
+    :type obj list|set|tuple
+    """
+    tokens = {}
+
+    try:
+      token_iterator = cls.make_iterable(obj)
+      _lang = cls.language_definition()
+      tokens = {k: [] for k in _lang.argument_types}
+
+      prev, current = None, next(token_iterator)
+
+      while True:
+        token = [None, None]
+        arg_type = None
+
+        for arg_type in _lang.argument_types:
+          arg_start_seq = _lang.argument_types[arg_type]
+          arg_delimiters = _lang.value_delimiters[arg_type]
+
+          if prev is None and arg_start_seq is None:  # just start to scan and got "default" token
+            token[1] = current
+            break
+          elif arg_start_seq is None and prev[0] is None:  # next default token
+            token[1] = current
+            break
+          elif arg_start_seq is None and prev[0] is not None:  # default token used after non-default tokens
+            token[1] = current
+            break
+          elif arg_start_seq is None:  # value of non-default token
+            prev[1] = current
+            token = None
+            break
+          elif current[:len(arg_start_seq)] == arg_start_seq:
+            token[0] = current[len(arg_start_seq):]
+
+            for delimiter in arg_delimiters:
+              if delimiter == " ":
+                continue
+
+              if delimiter in token[0]:
+                _delim = str(token[0]).partition(delimiter)
+                token = [_delim[0], _delim[2]]
+                break
+            break
+
+        if token:
+          tokens[arg_type].append(token)
+
+        prev, current = token, next(token_iterator)
+    except StopIteration:
+      return tokens
+
+  @classmethod
+  def make_iterable(cls, obj):
+    """
+    :type obj list|set|tuple
+    """
+    try:
+      return iter(list(obj))
+    except TypeError:
+      raise TypeError("Default tokenizer require iterable object to be passed")
+
+
 class CommandLineAST(object):
   """
   Command line samples:
@@ -21,66 +139,24 @@ class CommandLineAST(object):
   def __init__(self):
     self.__ast_tree = {}
 
-  def parse(self, argv):
+  def parse(self, argv, tokenizer=DefaultTokenizer):
     """
     Parse command line to out tree
 
-    :type argv list
+    :type argv object
+    :type tokenizer AbstractTokenizer
     """
-    args = list(argv)
+    args = tokenizer.tokenize(argv)
+    _lang = tokenizer.language_definition()
 
-    for param in self.__args:
-      if self._is_default_arg(param):
-        self.__out_tree[self.__default_arg_tag].append(param.strip())
-      else:
-        param = param.lstrip("-").partition('=')
-        if len(param) == 3:
-          self.__parse_one_param(param)
+    #
+    # for param in self.__args:
+    #   if self._is_default_arg(param):
+    #     self.__out_tree[self.__default_arg_tag].append(param.strip())
+    #   else:
+    #     param = param.lstrip("-").partition('=')
+    #     if len(param) == 3:
+    #       self.__parse_one_param(param)
+    pass
 
-  def _is_default_arg(self, param):
-    """
-    Check if passed arg belongs to default type
-    :type param str
-    :rtype bool
-    """
-    param = param.strip()
-    restricted_symbols = ["=", "-"]
-    for symbol in restricted_symbols:
-      if symbol in param[:1]:
-        return False
 
-    return True
-
-  def __set_node(self, node, key, value):
-    if not isinstance(node, dict):
-      raise TypeError("Invalid assignment to {0}".format(key))
-
-    if key in node and isinstance(node[key], dict) and not isinstance(value, dict):
-      raise TypeError("Invalid assignment to {0}".format(key))
-
-    node[key] = value
-
-  def __parse_one_param(self, param):
-    """
-    :argument param tuple which represents arg name, delimiter, arg value
-    :type param tuple
-    """
-    keys = param[0].split('.')
-    if len(keys) == 1:  # parse root element
-      self.__set_node(self.__out_tree, keys[0], param[2])
-    elif len(keys) > 0:
-      item = self.__out_tree
-      for i in range(0, len(keys)):
-        key = keys[i]
-        is_last_key = i == len(keys) - 1
-        if key not in item:
-          self.__set_node(item, key, "" if is_last_key else {})
-
-        if is_last_key and key in item and not isinstance(item[key], dict):
-          self.__set_node(item, key, param[2])
-        elif key in item and isinstance(item, dict):
-          item = item[key]
-        else:
-          break
-    else:
-      raise TypeError("Couldn't recognise parameter \'{}\'".format(param[0]))

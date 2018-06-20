@@ -8,7 +8,7 @@
 # Copyright (c) 2015 Reishin <hapy.lestat@gmail.com>
 
 
-from .cmd_ast import CommandLineAST
+from .ast import CommandLineAST
 from .general import Configuration
 
 
