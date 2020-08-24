@@ -106,7 +106,7 @@ class CURLResponse(object):
       raise TypeError("Stream content could be obtained only via raw property")
 
   @property
-  def raw(self):
+  def raw(self) -> str or HTTPResponse:
     """
     :return: Raw content of the response
     """

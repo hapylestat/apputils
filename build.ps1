@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -18,22 +17,24 @@
 #
 #
 
-MODULES=$(python3 setup.py modules)
+$MODULES = & "python3" setup.py modules
+$modulesList = $MODULES.Split(",")
 
-echo "Building main module..."
-python3 setup.py bdist_wheel
+write-host "Building main module..."
+& "python3" setup.py bdist_wheel
 
-IFS=","; for m in ${MODULES}; do
-  echo "Building ${m}..."
-  python3 setup.py bdist_wheel module "${m}"
-done
+foreach ($m in $modulesList) {
+    write-host "Building ${m}..."
+    & "python3" setup.py bdist_wheel module "${m}"
+}
 
-echo "Cleanup mess..."
-rm -rf ./*.egg-info
-rm -rf ./build
+write-host "Cleanup mess..."
+rm *.egg-info -Force -Recurse
+rm build -Force -Recurse
 
-echo "=================="
-echo "Modules:"
-IFS=","; for m in ${MODULES}; do
-  echo "- ${m}"
-done
+
+write-host "=================="
+write-host "Modules:"
+foreach ($m in $modulesList) {
+    write-host "- ${m}"
+}
