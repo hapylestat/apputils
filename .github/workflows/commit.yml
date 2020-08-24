@@ -26,11 +26,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install setuptools wheel twine
-
-      - name: Prepare variables
-        run: |
-          export COMMIT_ID="$(git log --format=%H -n 1)"
-          export COMMIT_MSG="$(git log --format=%B -n 1)"
       - name: Build Main and Rest Modules
         run: |
           bash ./build.sh
@@ -39,8 +34,10 @@ jobs:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
         run: |
+          export COMMIT_ID="$(git log --format=%H -n 1)"
+          export COMMIT_MSG="$(git log --format=%B -n 1)"
           echo "=================================="
           echo "Commit ID: ${COMMIT_ID}"
           echo "COMMIT_MSG: ${COMMIT_MSG}"
           echo "=================================="
-          twine upload -r pypi -u "${TWINE_USERNAME}" -p "${TWINE_PASS}" -c "${COMMIT_MSG} (${COMMIT_ID})" --skip-existing ./dist/*
+          twine upload -r pypi -c "${COMMIT_MSG} (${COMMIT_ID})" --skip-existing ./dist/*
