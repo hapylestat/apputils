@@ -39,4 +39,8 @@ jobs:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
         run:
-          twine upload --repository pypi --username ${TWINE_USERNAME} --password ${TWINE_PASS} --comment "${COMMIT_MSG} (${COMMIT_ID})" --skip-existing ./dist/*
+          echo "=================================="
+          echo "Commit ID: ${COMMIT_ID}"
+          echo "COMMIT_MSG: ${COMMIT_MSG}"
+          echo "=================================="
+          twine upload -r pypi -u "${TWINE_USERNAME}" -p "${TWINE_PASS}" -c "${COMMIT_MSG} (${COMMIT_ID})" --skip-existing ./dist/*
