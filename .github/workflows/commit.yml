@@ -38,7 +38,7 @@ jobs:
         env:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-        run:
+        run: |
           echo "=================================="
           echo "Commit ID: ${COMMIT_ID}"
           echo "COMMIT_MSG: ${COMMIT_MSG}"
