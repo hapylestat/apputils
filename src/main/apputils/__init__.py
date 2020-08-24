@@ -16,3 +16,6 @@
 # Github: https://github.com/hapylestat/apputils
 #
 #
+
+__app_name__ = "apputils"
+__app_version__ = "2.0.0"

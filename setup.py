@@ -1,69 +1,211 @@
-from setuptools import find_packages, setup
+#!/usr/bin/env python3
+
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import codecs
+import sys
 import os
+import re
+from distutils import dir_util
+from typing import List
+
+from setuptools import find_packages, setup
+
+root_dir = os.path.abspath(os.path.dirname(__file__))
+_author = "hapylestat@apache.org"
 
 
-# versioning  https://www.python.org/dev/peps/pep-0440/
+class Module(object):
+  def __init__(self, app_name:str, name: str, version: str,  path: str):
+    self.app_name = app_name
+    self.name = name
+    self.version = version
+    self.path = path
 
-def get_version():
-  app_version_module = __import__("apputils.version").version
-  app_ver = app_version_module.__version__
+  @property
+  def full_name(self) -> str:
+    return f"{self.app_name}-{self.name}"
 
-  build_number = os.environ['TRAVIS_BUILD_NUMBER'] if 'TRAVIS_BUILD_NUMBER' in os.environ else '0'
-  commit_msg = os.environ['COMMIT_MSG'] if 'COMMIT_MSG' in os.environ else None
+  @property
+  def package_name(self) -> str:
+    return f"{self.app_name}.{self.name}"
 
-  if 'GIT_BRANCH' in os.environ and os.environ['GIT_BRANCH'] == "master":
-    app_ver = f"{app_ver}dev{build_number}"
-  elif commit_msg and '[RC]' in commit_msg:
-    app_ver = f"{app_ver}rc{build_number}"
-  elif 'GIT_BRANCH' in os.environ and os.environ['GIT_BRANCH'] == "testing":
-    app_ver = f"{app_ver}b{build_number}"
-  elif 'GIT_BRANCH' in os.environ and os.environ['GIT_BRANCH'] == "production":
-    app_ver = f"{app_ver}.{build_number}"
-
-  return app_ver
+  def __str__(self):
+    return f"{self.full_name}-{self.version} ({self.name}-{self.version} -> {self.path})"
 
 
-def get_long_description():
-  readme_path = os.path.join(os.path.dirname(__file__), "README.md")
+def normalize_path(path: str) -> str:
+  return path.replace("/", os.path.sep)
+
+
+def read(*parts):
+  # auto-detects file encoding
+  with codecs.open(os.path.sep.join(parts), 'r') as fp:
+    return fp.read()
+
+
+def find_tag(tag: str or List[str], *file_paths: str):
+  tag_file = read(*file_paths)
+  if isinstance(tag, str):
+    tag = [tag]
+
+  result_list: List[str] = []
+  for t in tag:
+    tag_match = re.search(
+      rf"^__{t}__ = ['\"]([^'\"]*)['\"]",
+      tag_file,
+      re.M,
+    )
+    if tag_match:
+      result_list.append(tag_match.group(1))
+
+  if len(result_list) != len(tag):
+    raise RuntimeError(f"Unable to find some tag from the list: {', '.join(tag)}")
+
+  return result_list
+
+
+def load_requirements(path: str = "") -> List[str]:
+  try:
+    data = read(os.path.join(path, "requirements.txt"))
+  except Exception:
+    data = ""
+
+  return data.split("\n")
+
+
+def discover_modules(app_name: str, _modules_path: str, root_dir: str) -> List[Module]:
+  modules_path = normalize_path(os.path.join(root_dir, _modules_path, app_name))
+  _modules: List[Module] = []
+
+  for module in os.listdir(modules_path):
+    full_module_path = os.path.join(modules_path, module)
+    if not os.path.isdir(full_module_path):
+      continue
+
+    try:
+      _path = full_module_path.split(os.path.sep) + ["__init__.py"]
+      _name, _version = find_tag(["module_name", "module_version"], *_path)
+    except (RuntimeError or IOError):
+      continue
+    _modules.append(Module(app_name, _name, _version, full_module_path))
+
+  return _modules
+
+
+def install_main_application(_app_name: str, _app_version: str, modules: List[Module]):
+  extras_require = {}
+  my_path = os.path.abspath(os.path.join(root_dir, "src/main"))
+
+  for m in modules:
+    _m_name = m.name.lower()
+    extras_require[_m_name] = [m.full_name]
+
+  setup(
+    name=_app_name,
+    version=_app_version,
+    description="AppUtils Core package",
+    long_description="AppUtils Core Application",
+    license='ASF',
+    classifiers=[
+      "Programming Language :: Python",
+      "Programming Language :: Python :: 3",
+      "Programming Language :: Python :: 3.8",
+    ],
+    author=_author,
+    package_dir={"": my_path},
+    packages=find_packages(
+      where=my_path,
+      exclude=["contrib", "docs", "tests*", "tasks"],
+    ),
+    extras_require=extras_require,
+    install_requires=load_requirements(),
+    zip_safe=True,
+    python_requires='>=3.8',
+    setup_requires=[
+      'setuptools',
+      'wheel',
+    ]
+  )
+
+
+def install_module(app_name: str, app_version: str,_modules_path: str, module: Module):
+  packages = [n for n in find_packages(where=_modules_path) if module.full_name.replace("-", ".") in n]
+
+  setup(
+    name=module.full_name,
+    version=module.version,
+    description=f"AppUtils {module.name} package",
+    long_description=f"AppUtils {module.name} Application",
+    license='ASF',
+    classifiers=[
+      "Programming Language :: Python",
+      "Programming Language :: Python :: 3",
+      "Programming Language :: Python :: 3.8",
+    ],
+    author=_author,
+    package_dir={module.package_name: module.path},
+    packages=packages,
+    install_requires=load_requirements(module.path) + [
+      f"{app_name}=={app_version}"
+    ],
+    zip_safe=True,
+    python_requires='>=3.8',
+    setup_requires=[
+      'setuptools',
+      'wheel',
+    ]
+  )
+
+
+def cleanup():
+  try:
+    dir_util.remove_tree(os.path.join(root_dir, "build"), verbose=1)
+  except FileNotFoundError:
+    pass
+
+
+def main():
+  cleanup()
+
+  _modules_path: str = os.path.abspath(os.path.join(root_dir, "src/modules"))
+  app_name, app_version = find_tag(["app_name", "app_version"], "src", "main", "apputils", "__init__.py")
+  modules = discover_modules(app_name, _modules_path, root_dir)
+
+  cmd = sys.argv
+  module_name: str = ""
+  if 'modules' in cmd:
+    print(",".join([m.name for m in modules]))
+    return
 
   try:
-    with open(readme_path, "r") as f:
-      readme_content = f.read()
-  except FileNotFoundError:
-    readme_content = ""
+    i = cmd.index("module")
+    if i > 0 and len(cmd) > i+1:
+      module_name = cmd[i+1]
+      sys.argv.pop(i+1)
+      sys.argv.pop(i)
 
-  return readme_content
-
-
-app_utils = __import__("apputils")
-app_name = app_utils.__name__
-app_author = app_utils.__author__
-app_author_mail = app_utils.__author_mail__
-app_version = get_version()
-app_url = app_utils.__url__
-
-
-package_excludes = {"examples", "tests"}
+    for m in modules:
+      if module_name and module_name == m.name:
+        print(f"==> Creating package for {m.full_name}:{m.version}...")
+        install_module(app_name, app_version, _modules_path, m)
+        return
+  except ValueError:
+    print("==> Building main package")
+    install_main_application(app_name, app_version, modules)
 
 
-setup(
-  name=app_name,
-  version=app_version,
-  url=app_url,
-  author=app_author,
-  author_email=app_author_mail,
-  description='Application modules swiss-knife',
-  long_description=get_long_description(),
-  long_description_content_type='text/markdown',
-  license='lGPL v3',
-  zip_safe=False,
-  packages=find_packages(exclude=package_excludes),
-
-  include_package_data=True,
-  classifiers=[
-    'Operating System :: OS Independent',
-    'Programming Language :: Python',
-    'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.6'
-  ],
-)
+main()
