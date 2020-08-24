@@ -33,7 +33,7 @@ jobs:
           export COMMIT_MSG="$(git log --format=%B -n 1)"
       - name: Build Main and Rest Modules
         run: |
-          ./build.sh
+          bash ./build.sh
       - name: Publish Components
         env:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
