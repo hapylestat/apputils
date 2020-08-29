@@ -26,8 +26,8 @@ import os
 from datetime import datetime
 from enum import Enum
 
-from apputils.progressbar.get_terminal_size import get_terminal_size
-from apputils.progressbar.string_utils import safe_format
+from .get_terminal_size import get_terminal_size
+from .string_utils import safe_format
 
 """
     Template description:
@@ -256,7 +256,7 @@ class ProgressBar(object):
 
   def reset(self):
     self._status = ProgressBarStatus.stopped
-    self._max = 0
+    self._max = 1
     self._value = 0
     self.progress(0)
 
