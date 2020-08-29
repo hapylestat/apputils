@@ -28,7 +28,7 @@ jobs:
           pip install setuptools wheel twine
       - name: Build Main and Rest Modules
         env:
-          DEBUG_BUILD: ${{ GITHUB_RUN_NUMBER }}
+          DEBUG_BUILD: ${{ github.run_number }}
         run: |
           bash ./build.sh
       - name: Publish Components
