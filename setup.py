@@ -190,15 +190,15 @@ def main():
   app_version = find_tag("version", "options")
   modules = discover_modules(app_name, _modules_path, root_dir)
 
-  if debug_build:
-    print(f"!! This is debug build with number {debug_build} !!")
-    app_version = f"{app_version}.dev{debug_build}"
-
   cmd = sys.argv
   module_name: str = ""
   if 'modules' in cmd:
     print(",".join([m.name for m in modules]))
     return
+
+  if debug_build:
+    print(f"!! This is debug build with number {debug_build} !!")
+    app_version = f"{app_version}.dev{debug_build}"
 
   try:
     i = cmd.index("module")
