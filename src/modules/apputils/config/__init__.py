@@ -59,6 +59,10 @@ class Configuration(object):
     answer = self.__ask_text_question(prompt, encrypted).lower()
     return answer == "y" or answer == "yes"
 
+  @property
+  def configuration_dir(self):
+    return self.__storage.configuration_dir
+
   def set_property(self, name: str, value: str, is_encrypted: bool = False):
     self.__storage.set_text_property(self.__options_table, name, value, encrypted=is_encrypted)
 
