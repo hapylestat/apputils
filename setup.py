@@ -29,7 +29,7 @@ _author = "hapylestat@apache.org"
 
 
 class Module(object):
-  def __init__(self, app_name:str, name: str, version: str,  path: str):
+  def __init__(self, app_name: str, name: str, version: str,  path: str):
     self.app_name = app_name
     self.name = name
     self.version = version
@@ -57,7 +57,7 @@ def read(*parts):
     return fp.read()
 
 
-def find_tag(tag: str or List[str], *file_paths: str):
+def find_tag(tag: str or List[str], *file_paths: str) -> List[str] or str:
   tag_file = read(*file_paths)
   if isinstance(tag, str):
     tag = [tag]
@@ -74,6 +74,9 @@ def find_tag(tag: str or List[str], *file_paths: str):
 
   if len(result_list) != len(tag):
     raise RuntimeError(f"Unable to find some tag from the list: {', '.join(tag)}")
+
+  if len(result_list) == 1:
+    return result_list[0]
 
   return result_list
 
@@ -147,7 +150,7 @@ def install_module(app_name: str, app_version: str,_modules_path: str, module: M
 
   setup(
     name=module.full_name,
-    version=module.version,
+    version=app_version,
     description=f"AppUtils {module.name} package",
     long_description=f"AppUtils {module.name} Application",
     license='ASF',
@@ -180,10 +183,16 @@ def cleanup():
 
 def main():
   cleanup()
+  debug_build: str = os.getenv("DEBUG_BUILD", "")
 
   _modules_path: str = os.path.abspath(os.path.join(root_dir, "src/modules"))
-  app_name, app_version = find_tag(["app_name", "app_version"], "src", "main", "apputils", "__init__.py")
+  app_name = find_tag("app_name", "src", "main", "apputils", "__init__.py")
+  app_version = find_tag("options", "version")
   modules = discover_modules(app_name, _modules_path, root_dir)
+
+  if debug_build:
+    print(f"!! This is debug build with number {debug_build} !!")
+    app_version = f"{app_version}.dev{debug_build}"
 
   cmd = sys.argv
   module_name: str = ""
