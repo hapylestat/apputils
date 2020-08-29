@@ -187,7 +187,7 @@ def main():
 
   _modules_path: str = os.path.abspath(os.path.join(root_dir, "src/modules"))
   app_name = find_tag("app_name", "src", "main", "apputils", "__init__.py")
-  app_version = find_tag("options", "version")
+  app_version = find_tag("version", "options")
   modules = discover_modules(app_name, _modules_path, root_dir)
 
   if debug_build:
