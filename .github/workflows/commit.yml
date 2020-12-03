@@ -1,6 +1,10 @@
-name: Commit Builde
+name: Commit Build
 on:
   push:
+    paths-ignore:
+      - 'src/**'
+      - '.githun/**'
+      - '!options'
     branches:
       - master
 
