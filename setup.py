@@ -57,26 +57,34 @@ def read(*parts):
     return fp.read()
 
 
-def find_tag(tag: str or List[str], *file_paths: str) -> List[str] or str:
-  tag_file = read(*file_paths)
-  if isinstance(tag, str):
-    tag = [tag]
-
+def find_tag(tags: str or List[str], *file_paths: str, use_import: bool = False):
   result_list: List[str] = []
-  for t in tag:
-    tag_match = re.search(
-      rf"^__{t}__ = ['\"]([^'\"]*)['\"]",
-      tag_file,
-      re.M,
-    )
-    if tag_match:
-      result_list.append(tag_match.group(1))
+  if isinstance(tags, str):
+    tags = [tags]
 
-  if len(result_list) != len(tag):
-    raise RuntimeError(f"Unable to find some tag from the list: {', '.join(tag)}")
+  if use_import:
+    import importlib
+    _path = ".".join(file_paths)
+    if _path.endswith(".py"):
+      _path = _path[:-3]
+    m = importlib.import_module(_path)
 
-  if len(result_list) == 1:
-    return result_list[0]
+    for t in tags:
+      if f"__{t}__" in m.__dict__:
+        result_list.append(m.__dict__[f"__{t}__"])
+  else:
+    tag_file = read(*file_paths)
+    for t in tags:
+      tag_match = re.search(
+        rf"^__{t}__ = ['\"]([^'\"]*)['\"]",
+        tag_file,
+        re.M,
+      )
+      if tag_match:
+        result_list.append(tag_match.group(1))
+
+  if len(result_list) != len(tags):
+    raise RuntimeError(f"Unable to find some tag from the list: {', '.join(tags)}")
 
   return result_list
 
@@ -189,8 +197,12 @@ def main():
   debug_build: str = os.getenv("DEBUG_BUILD", "")
 
   _modules_path: str = os.path.abspath(os.path.join(root_dir, "src/modules"))
-  app_name = find_tag("app_name", "src", "main", "apputils", "__init__.py")
-  app_version = find_tag("version", "options")
+  app_name, app_version = find_tag(
+    ["app_name", "app_version"],
+    "src", "main", "apputils", "__init__.py",
+    use_import=True
+  )
+
   modules = discover_modules(app_name, app_version, _modules_path, root_dir)
 
   cmd = sys.argv

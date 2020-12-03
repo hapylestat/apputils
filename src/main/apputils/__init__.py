@@ -17,5 +17,7 @@
 #
 #
 
+import os
+
 __app_name__ = "apputils"
-__app_version__ = "2.0.0"
+__app_version__ = os.getenv("APP_VERSION", "v2.0.1")[1:]
