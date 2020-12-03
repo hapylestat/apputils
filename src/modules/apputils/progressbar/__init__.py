@@ -23,7 +23,7 @@ import os
 from datetime import datetime
 from enum import Enum
 
-from .get_terminal_size import get_terminal_size
+from modules.apputils.terminal.get_terminal_size import get_terminal_size
 from .string_utils import safe_format
 
 """
