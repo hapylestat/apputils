@@ -17,20 +17,14 @@
 #
 #
 
-__module_name__ = "json2obj"
-__module_version__ = "2.0.0"
-
 import json
 from types import FunctionType
-from typing import List, Optional, get_type_hints
-
-# all annotations now returned as string and should be parsed via  typing.get_type_hints
-# from __future__ import annotations
+from typing import List, Optional, get_type_hints, get_args
 
 
 class SerializableObject(object):
   """
-   BaseConfigView is a basic class, which providing Object to Dict, Dict to Object conversion with
+   SerializableObject is a basic class, which providing Object to Dict, Dict to Object conversion with
    basic fields validation.
 
    Should be subclassed for proper usage. For example we have such dictionary:
@@ -43,7 +37,8 @@ class SerializableObject(object):
    and we want to convert this to the object with populated object fields by key:value pairs from dict.
    For that we need to declare object view and describe there expected fields:
 
-   class PersonView(BaseConfigView):
+   class PersonView(SerializableObject):
+     __strict__ = True  # regulate, if de-serialization will fail on unknown field
      name = None
      age = None
 
@@ -53,13 +48,13 @@ class SerializableObject(object):
     person = PersonView(serialized_obj=my_dict)
 
 
-
     As second way to initialize view, view fields could be directly passed as constructor arguments:
 
-    person = PersonView(name=
+    person = PersonView(name=name, age=16)
 
 
   """
+  __strict__ = True
 
   def __init__(self, serialized_obj: str or dict or object or None = None, **kwargs):
     if len(kwargs) > 0:
@@ -123,26 +118,28 @@ class SerializableObject(object):
             .replace("-", "_") \
             .replace(":", "_")
 
+        __annotations = get_type_hints(self.__class__)
+
         if k not in self.__class__.__dict__:
           t = "object" if not v else v.__class__.__name__
           errors.append(f"{self.__class__.__name__} doesn't contain property {k}: {t} (sample:{v})")
           continue
-        elif k not in self.__class__.__annotations__:
+        elif k not in __annotations:
           errors.append(f"{self.__class__.__name__} doesn't contain type annotation in the definition {k}")
           continue
 
-        attr_type = self.__class__.__annotations__[k]
-        is_annotated = "_GenericAlias" in attr_type.__class__.__name__
+        attr_type = __annotations[k]
+        is_annotated = len(get_args(attr_type)) != 0
         if is_annotated:
           name = attr_type.__dict__["_name"].lower()
-          attr_args: List[type] = attr_type.__dict__["__args__"]
+          attr_args: List[type] = list(get_args(attr_type))
         else:
           name = attr_type.__class__.__name__
           attr_args: List[type] = [attr_type[0]] if name == list else [attr_type]
 
         attr_type_arg: Optional[type] = attr_args[0] if attr_args else None
 
-        if name == "list" and attr_args and issubclass(attr_type_arg, SerializableObject):
+        if name == "list" and attr_args:
           obj_list = []
           if isinstance(v, list) or isinstance(v, List):
             for vItem in v:
@@ -150,19 +147,17 @@ class SerializableObject(object):
           else:
             obj_list.append(attr_type_arg(v))
           self.__setattr__(k, obj_list)
-        elif name == "list" and attr_args:
-          _lst = []
-          if isinstance(v, list) or isinstance(v, List):
-            for vItem in v:
-              _lst.append(attr_type_arg(vItem))
-          else:
-            _lst.append(attr_type_arg(v))
-          self.__setattr__(k, _lst)
         elif name == "dict" and attr_args and len(attr_args) == 2 and isinstance(v, dict):
           dict_item = {}
           for _k, _v in v.items():
             if _v:
-              _v = attr_args[1](_v)
+              _is_annotated = len(get_args(attr_args[1])) != 0
+              _type = attr_args[1]
+              if _is_annotated and isinstance(_v, list):
+                _type = get_args(attr_args[1])[0]
+                _v = [_type(_item) for _item in _v]
+              else:
+                _v = _type(_v)
 
             dict_item[_k] = _v
           self.__setattr__(k, dict_item)
@@ -176,7 +171,7 @@ class SerializableObject(object):
             v = attr_type_arg()
           self.__setattr__(k, v)
 
-      if errors:
+      if errors and self.__strict__:
         raise ValueError("A number of errors happen:  \n" + "\n".join(errors))
 
   def serialize(self) -> dict:
@@ -217,3 +212,6 @@ class SerializableObject(object):
         else:
           ret[k] = v
     return ret
+
+  def to_json(self) -> str:
+    return json.dumps(self.serialize())

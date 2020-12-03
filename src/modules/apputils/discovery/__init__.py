@@ -17,9 +17,6 @@
 #
 #
 
-__module_name__ = "discovery"
-__module_version__ = "2.0.0"
-
 import os
 import sys
 from typing import List

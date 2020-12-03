@@ -18,10 +18,6 @@
 #
 
 
-__module_name__ = "config"
-__module_version__ = "2.0.0"
-
-
 from .base_storage import BaseStorage
 from .sql_storage import SQLStorage, StorageProperty, StoragePropertyType
 from typing import ClassVar

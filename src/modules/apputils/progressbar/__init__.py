@@ -17,9 +17,6 @@
 #
 #
 
-__module_name__ = "progressbar"
-__module_version__ = "2.0.0"
-
 import sys
 import time
 import os

@@ -90,21 +90,24 @@ def load_requirements(path: str = "") -> List[str]:
   return data.split("\n")
 
 
-def discover_modules(app_name: str, _modules_path: str, root_dir: str) -> List[Module]:
+def discover_modules(app_name: str, app_version: str, _modules_path: str, root_dir: str) -> List[Module]:
   modules_path = normalize_path(os.path.join(root_dir, _modules_path, app_name))
   _modules: List[Module] = []
 
   for module in os.listdir(modules_path):
+    if module.startswith("__"):
+      continue
+
     full_module_path = os.path.join(modules_path, module)
     if not os.path.isdir(full_module_path):
       continue
 
     try:
       _path = full_module_path.split(os.path.sep) + ["__init__.py"]
-      _name, _version = find_tag(["module_name", "module_version"], *_path)
+      _name = module
     except (RuntimeError or IOError):
       continue
-    _modules.append(Module(app_name, _name, _version, full_module_path))
+    _modules.append(Module(app_name, _name, app_version, full_module_path))
 
   return _modules
 
@@ -188,7 +191,7 @@ def main():
   _modules_path: str = os.path.abspath(os.path.join(root_dir, "src/modules"))
   app_name = find_tag("app_name", "src", "main", "apputils", "__init__.py")
   app_version = find_tag("version", "options")
-  modules = discover_modules(app_name, _modules_path, root_dir)
+  modules = discover_modules(app_name, app_version, _modules_path, root_dir)
 
   cmd = sys.argv
   module_name: str = ""
