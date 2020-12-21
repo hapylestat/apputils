@@ -150,6 +150,7 @@ class CommandsDiscovery(object):
       raise NoCommandException(None, f"Application arguments exception: {str(e)}\n")
 
   def start_application(self, kwargs: dict = None):
+    # ToDO: add default command to be executed if no passed
     try:
       command = self._get_command(injected_args=kwargs, fail_on_unknown=True)
       command.execute(injected_args=kwargs)

@@ -23,8 +23,8 @@ import os
 from datetime import datetime
 from enum import Enum
 
-from modules.apputils.terminal.get_terminal_size import get_terminal_size
 from .string_utils import safe_format
+from ..terminal.get_terminal_size import get_terminal_size
 
 """
     Template description:

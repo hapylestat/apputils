@@ -19,7 +19,7 @@
 
 import json
 from types import FunctionType
-from typing import List, Optional, get_type_hints, get_args
+from typing import get_type_hints, get_args, ClassVar, Dict
 
 
 class SerializableObject(object):
@@ -27,7 +27,7 @@ class SerializableObject(object):
    SerializableObject is a basic class, which providing Object to Dict, Dict to Object conversion with
    basic fields validation.
 
-   Should be subclassed for proper usage. For example we have such dictionary:
+   For example we have such dictionary:
 
    my_dict = {
      name: "Amy",
@@ -38,7 +38,6 @@ class SerializableObject(object):
    For that we need to declare object view and describe there expected fields:
 
    class PersonView(SerializableObject):
-     __strict__ = True  # regulate, if de-serialization will fail on unknown field
      name = None
      age = None
 
@@ -52,166 +51,184 @@ class SerializableObject(object):
 
     person = PersonView(name=name, age=16)
 
+  """
 
   """
-  __strict__ = True
+  Any error in de-serialization will trigger ValueError exception
+  """
+  __strict__: bool = True
+
+  """
+  Group an json key by the string.endswith pattern.
+
+  Example JSON:
+  {
+    'a_url': 'xxxxxxx',
+    'b_url': 'yyyyyyy'
+  }
+
+  Example class:
+   class MyObject(SerializableObject):
+     __mapping__ = {
+      'uris' : '_url'
+     }
+
+  Resulting object:
+
+  MyObject = {
+    uris: {
+     'a_url': 'xxxxxx',
+     'b_url': 'yyyyyy'
+    }
+  }
+
+  """
+  __mapping__: Dict = {}
+
+  """
+  Alias json key to proper PyObject field name.
+
+  For example:
+   'a:b' -> 'a_b"
+
+   class MyObject(SerializableObject):
+     __aliases__ = {
+       'existing_field': 'json_key',
+       'a_b' : 'a:b'
+     }
+  """
+  __aliases__: Dict = {}
 
   def __init__(self, serialized_obj: str or dict or object or None = None, **kwargs):
+    self.__error__ = []
+
+    if type(serialized_obj) is self:
+      import copy
+      self.__dict__ = copy.deepcopy(serialized_obj.__dict__)
+      self.__annotations__ = copy.deepcopy(serialized_obj.__annotations__)
+      return
+
+    if isinstance(serialized_obj, str):
+      # ToDo: inject class decode via object_hook/object_pairs_hook with provided schema
+      serialized_obj = json.loads(serialized_obj)
+
+    assert type(serialized_obj) is Dict or None
+
     if len(kwargs) > 0:
-      self._handle_initialization(kwargs)
-    else:
-      if isinstance(serialized_obj, str):
-        serialized_obj = json.loads(serialized_obj)
-      self._handle_deserialization(serialized_obj)
-
-  def _handle_initialization(self, kwargs):
-    props = dir(self)
-    for item in kwargs:
-      if item not in props:
-        continue
-      self.__setattr__(item, kwargs[item])
-
-  def _handle_deserialization(self, serialized_obj=None):
-    if serialized_obj is not None:
-      if self.__class__ is serialized_obj.__class__:
-        self.__dict__ = serialized_obj.__dict__
-        self.__annotations__ = serialized_obj.__annotations__
+      if serialized_obj:
+        serialized_obj.update(kwargs)
       else:
-        self.deserialize(serialized_obj)
-        self.clean()
+        serialized_obj = kwargs
 
-  def __isclass(self, obj):
-    try:
-      issubclass(obj, object)
-    except TypeError:
-      return False
+    if serialized_obj is None:
+      return
+
+    self.__deserialize(serialized_obj)
+
+  def __handle_errors(self, clazz: ClassVar, d: dict, missing_definitions, missing_annotations):
+    for miss_def in missing_definitions:
+      v = d[miss_def]
+      self.__error__.append(f"{clazz.__name__} class doesn't contain property '{miss_def}: {type(v).__name__}' (value sample:{v})")
+
+    for miss_ann in missing_annotations:
+      self.__error__.append(f"{clazz.__name__} class doesn't contain type annotation in the definition '{miss_ann}'")
+
+    if not self.__error__:
+      return
+
+    end_line = "\n- "
+    raise ValueError(f"""
+A number of errors happen:
+--------------------------
+- {end_line.join(self.__error__)}
+""")
+
+  def __deserialize_transform(self, property_value, schema):
+    is_generic = '__origin__' in schema.__dict__
+    _type = schema.__dict__['__origin__'] if is_generic else schema
+    schema_args = list(get_args(schema)) if is_generic else [] if _type is list else [schema]
+    property_type = schema_args[0] if schema_args else None
+
+    if property_type and not isinstance(property_value, _type) \
+      and not (issubclass(property_type, SerializableObject) and isinstance(property_value, dict)):
+
+      self.__error__.append(f"Conflicting type in schema and data for object '{self.__class__.__name__}'")
+      return None
+
+    if _type is list:
+      return [property_type(i) for i in property_value] if property_type else property_value
+    elif _type is dict:
+      return {k: self.__deserialize_transform(v, schema_args[1]) for k, v in property_value.items()}
     else:
-      return True
+      return _type(property_value) if _type else property_value
 
-  def __isjson(self, json_string):
-    try:
-      json.loads(json_string)
-    except ValueError:
-      return False
-    return True
+  def __deserialize(self, d: dict):
+    self.__error__ = []
+    clazz = self.__class__
+    properties = {k: v for k, v in clazz.__dict__.items() if not k.startswith("__") and not isinstance(v, FunctionType)}
+    annotations = get_type_hints(clazz)
 
-  def clean(self):
-    """
-    Replace not de-serialized types with none
-    """
-    for item in dir(self):
-      attr = self.__getattribute__(item)
-      if item[:2] != "__" and self.__isclass(attr) and issubclass(attr, SerializableObject):
-        self.__setattr__(item, None)
-      elif item[:2] != "__" and isinstance(attr, list) and len(attr) == 1 and \
-        self.__isclass(attr[0]) and issubclass(attr[0], SerializableObject):
-        self.__setattr__(item, [])
+    for property_name, schema in annotations.items():
+      try:
+        # the way to map properties like "a-b" to python fields
+        resolved_prop = self.__aliases__[property_name]
+      except KeyError:
+        resolved_prop = property_name
 
-  def deserialize(self, d: dict):
-    errors = []
-    if isinstance(d, dict):
-      for k, v in d.items():
-        if isinstance(k, str):  # hack, change variable name from a.b.c to a_b_c
-          # ToDo: add some kind of annotation to make such conversion smoother
-          k = k \
-            .replace(".", "_") \
-            .replace("-", "_") \
-            .replace(":", "_")
+      if resolved_prop not in d:  # Property didn't come with data, setting default value
+        self.__setattr__(property_name, properties[property_name])
+        continue
 
-        __annotations = get_type_hints(self.__class__)
+      property_value = d[resolved_prop]
+      self.__setattr__(property_name, self.__deserialize_transform(property_value, schema))
 
-        if k not in self.__class__.__dict__:
-          t = "object" if not v else v.__class__.__name__
-          errors.append(f"{self.__class__.__name__} doesn't contain property {k}: {t} (sample:{v})")
-          continue
-        elif k not in __annotations:
-          errors.append(f"{self.__class__.__name__} doesn't contain type annotation in the definition {k}")
-          continue
+    missing_definitions = set(d.keys()) - set(annotations.keys()) - set(self.__aliases__.values())
+    if self.__mapping__:
+      for definition, pattern in self.__mapping__.items():
+        ret = {}
+        for unknown_def in missing_definitions:
+          if unknown_def.endswith(pattern):
+            ret[unknown_def] = d[unknown_def]
+        if ret:
+          self.__setattr__(definition, ret)
+          missing_definitions = set(missing_definitions) - set(ret.keys())
 
-        attr_type = __annotations[k]
-        is_annotated = len(get_args(attr_type)) != 0
-        if is_annotated:
-          name = attr_type.__dict__["_name"].lower()
-          attr_args: List[type] = list(get_args(attr_type))
-        else:
-          name = attr_type.__class__.__name__
-          attr_args: List[type] = [attr_type[0]] if name == list else [attr_type]
+    if self.__strict__:
+      missing_annotations = set(properties.keys()) - set(annotations.keys())
+      self.__handle_errors(clazz, d, missing_definitions, missing_annotations)
 
-        attr_type_arg: Optional[type] = attr_args[0] if attr_args else None
+  def __serialize_transform(self, item):
+    _type = type(item)
 
-        if name == "list" and attr_args:
-          obj_list = []
-          if isinstance(v, list) or isinstance(v, List):
-            for vItem in v:
-              obj_list.append(attr_type_arg(vItem))
-          else:
-            obj_list.append(attr_type_arg(v))
-          self.__setattr__(k, obj_list)
-        elif name == "dict" and attr_args and len(attr_args) == 2 and isinstance(v, dict):
-          dict_item = {}
-          for _k, _v in v.items():
-            if _v:
-              _is_annotated = len(get_args(attr_args[1])) != 0
-              _type = attr_args[1]
-              if _is_annotated and isinstance(_v, list):
-                _type = get_args(attr_args[1])[0]
-                _v = [_type(_item) for _item in _v]
-              else:
-                _v = _type(_v)
-
-            dict_item[_k] = _v
-          self.__setattr__(k, dict_item)
-        elif self.__isclass(attr_type_arg) and issubclass(attr_type_arg, SerializableObject):
-          # we expecting here an dict to deserialize but empty string come
-          v = v if isinstance(v, dict) or (isinstance(v, str) and self.__isjson(v)) else None
-          self.__setattr__(k, attr_type_arg(v))
-        else:
-          # if parsed type is not same as expected, create dummy one
-          if v is not None and not isinstance(v, attr_type_arg):
-            v = attr_type_arg()
-          self.__setattr__(k, v)
-
-      if errors and self.__strict__:
-        raise ValueError("A number of errors happen:  \n" + "\n".join(errors))
+    if _type is list:
+      return [self.__serialize_transform(i) for i in item]
+    elif _type is dict:
+      return {k: self.__serialize_transform(v) for k, v in item.items() if v is not None}
+    else:
+      return self.__serialize_transform(item.serialize()) if issubclass(_type, SerializableObject) else _type(item)
 
   def serialize(self) -> dict:
-    ret = {}
-
     # first of all we need to move defaults from class
-    properties = dict(self.__class__.__dict__)
-    properties.update(dict(self.__dict__))
+    all_properties = dict(self.__class__.__dict__)
+    all_properties.update(dict(self.__dict__))
+    _filter_properties = list(self.__aliases__.keys()) + list(self.__mapping__.keys())
 
-    properties = {k: v for k, v in properties.items() if k[-1:] != "_"}
+    properties: Dict = {k: v for k, v in all_properties.items()
+                        if not k.startswith("__")                                     # filter hidden properties
+                        and not isinstance(v, (FunctionType, property, classmethod))  # ignore functions
+                        and k not in _filter_properties                               # exclude "special cases"
+                        }
 
-    for k, v in properties.items():
-      if isinstance(v, (FunctionType, property, classmethod)):
-        continue
+    if self.__aliases__:
+      properties.update({a: all_properties[p] for p, a in self.__aliases__.items() if p in all_properties})
 
-      if v is not None:
-        if isinstance(v, list) and len(v) > 0:
-          v_result = []
-          for v_item in v:
-            if issubclass(v_item.__class__, SerializableObject):
-              v_result.append(v_item.serialize())
-            elif self.__isclass(v_item) and issubclass(v_item, SerializableObject):
-              v_result.append(v_item().serialize())
-            else:
-              v_result.append(v_item)
-          ret[k] = v_result
-        elif issubclass(v.__class__, SerializableObject):  # here we have instance of an class
-          ret[k] = v.serialize()
-        elif isinstance(v, dict):
-          d_result = {}
-          for _k, _v in v.items():
-            if _v and issubclass(_v.__class__, SerializableObject):
-              _v = _v.serialize()
-            d_result[_k] = _v
-          ret[k] = d_result
-        elif self.__isclass(v) and issubclass(v, SerializableObject):  # here is an class itself
-          ret[k] = v().serialize()
-        else:
-          ret[k] = v
-    return ret
+    if self.__mapping__:
+      for k in self.__mapping__.keys():
+        if k in all_properties and isinstance(all_properties[k], dict):
+          properties.update(all_properties[k])
+
+    return self.__serialize_transform(properties)
 
   def to_json(self) -> str:
+    # ToDo: inject class encode via object_hook/object_pairs_hook with provided schema
     return json.dumps(self.serialize())
