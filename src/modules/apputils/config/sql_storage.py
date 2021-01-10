@@ -27,7 +27,7 @@ from getpass import getpass
 from typing import List, Callable
 from cryptography.fernet import Fernet, InvalidToken
 
-from . import BaseStorage
+from .base_storage import BaseStorage
 
 
 class StoragePropertyType(Enum):
@@ -97,8 +97,8 @@ class SQLStorage(BaseStorage):
   __tables: List[str] = None
   __key_encoding = "UTF-8"
 
-  def __init__(self, app_name: str, app_version: str, lazy: bool = True):
-    super(SQLStorage, self).__init__(app_name, app_version)
+  def __init__(self, lazy: bool = False):
+    super(SQLStorage, self).__init__()
 
     self.__fernet: Fernet or None = None
     self._db_connection: sqlite3.Connection = sqlite3.connect(self.configuration_file_path, check_same_thread=False)
@@ -122,6 +122,8 @@ class SQLStorage(BaseStorage):
     if os.path.exists(self.configuration_file_path):
       os.remove(self.configuration_file_path)
 
+    self._db_connection = sqlite3.connect(self.configuration_file_path, check_same_thread=False)
+
   def create_key(self, persist: bool, master_password: str):
     if persist and master_password is None:
       print("Notice: With no password set would be generated default PC-depended encryption key")
@@ -144,7 +146,7 @@ class SQLStorage(BaseStorage):
       with open(self.secret_file_path, "wb") as f:
         f.write(key)
 
-      print(f"Key saved to {self.secret_file_path}, keep it save")
+      print(f"Key saved to {self.secret_file_path}, keep it safe")
 
   def _load_secret_key(self, persist: bool = False) -> str or None:
     if persist and not os.path.exists(self.secret_file_path):
@@ -241,10 +243,45 @@ class SQLStorage(BaseStorage):
     create table {table}(name TEXT UNIQUE, type TEXT, updated REAL DEFAULT 0, store CLOB);
     """
     self.execute_script(sql)
+    self._db_connection.commit()
     self.__tables.append(table)
 
   def reset_properties_update_time(self, table: str):
     self._query(f"update {table} set updated=0.1", commit=True)
+
+  def get_property_list(self, table: str) -> List[str]:
+    if table not in self.__tables:
+      return []
+
+    result_set = self._query(f"select name from {table}")
+    if not result_set:
+      return []
+
+    return [item[0] for item in result_set]
+
+  def __transform_property_value(self, name: str, p_type: str, p_updated: str, p_value: str) -> StorageProperty:
+    pt_type = StoragePropertyType.from_string(p_type)
+
+    if pt_type == StoragePropertyType.encrypted:
+      p_value = self._decrypt(p_value)
+
+    if pt_type == StoragePropertyType.json:
+      p_value = json.loads(p_value)
+
+    return StorageProperty(name, StoragePropertyType.from_string(p_type), p_value, p_updated)
+
+  def get_properties(self, table: str) -> List[StorageProperty]:
+    """
+    Return array of properties in form of:
+    ...
+    key_name, key_value
+    ...
+    """
+    if table not in self.__tables:
+      return []
+
+    result_set = self._query(f"select name, type, updated, store from {table}")
+    return [self.__transform_property_value(*item) for item in result_set]
 
   def get_property(self, table: str, name: str, default=StorageProperty()) -> StorageProperty:
     if table not in self.__tables:
@@ -257,18 +294,11 @@ class SQLStorage(BaseStorage):
       return default
 
     p_type, p_updated, p_value = result_set
-    pt_type = StoragePropertyType.from_string(p_type)
 
-    if pt_type == StoragePropertyType.encrypted:
-      p_value = self._decrypt(p_value)
-
-    if pt_type == StoragePropertyType.json:
-      p_value = json.loads(p_value)
-
-    return StorageProperty(name, p_type, p_value, p_updated)
+    return self.__transform_property_value(name, p_type, p_updated, p_value)
 
   def set_property(self, table: str, prop: StorageProperty, encrypted: bool = False):
-    if table not in self.__tables:
+    if table not in self.__get_table_list():
       self._create_property_table(table)
 
     if not encrypted and prop.property_type == StoragePropertyType.encrypted:
@@ -288,10 +318,23 @@ class SQLStorage(BaseStorage):
     else:
       self._query(f"insert into {table} (store, type, updated, name) values (?,?,?,?);", args, commit=True)
 
+  def delete_property(self, table: str, name: str) -> bool:
+    if table not in self.__tables:
+      return True
+
+    if not self.property_existed(table, name):
+      return True
+
+    self._query(f"delete from {table} where name=?", [name], commit=True)
+    return True
+
   def set_text_property(self, table: str, name: str, value, encrypted: bool = False):
     p = StorageProperty(name, StoragePropertyType.text, value)
     self.set_property(table, p, encrypted)
 
-  def property_existed(self, table: str, name: str):
+  def property_existed(self, table: str, name: str) -> bool:
+    if table not in self.__get_table_list():
+      return False
+
     result_set = self._query(f"select store from {table} where name=?;", [name])
     return True if result_set else False

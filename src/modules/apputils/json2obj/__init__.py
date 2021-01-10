@@ -112,7 +112,7 @@ class SerializableObject(object):
       # ToDo: inject class decode via object_hook/object_pairs_hook with provided schema
       serialized_obj = json.loads(serialized_obj)
 
-    assert type(serialized_obj) is Dict or None
+    assert type(serialized_obj) is Dict or serialized_obj is None
 
     if len(kwargs) > 0:
       if serialized_obj:

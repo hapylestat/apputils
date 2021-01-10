@@ -70,12 +70,22 @@ class CommandsDiscovery(object):
 
     return self
 
-  def generate_help(self, filename: str = "", command: str = ""):
-    help_str = "{} [{}]\n\n".format(filename, "|".join(self._modules.commands))
-    help_str += """\n\nAvailable commands:
+  def __inject_help_command(self):
+    meta = CommandMetaInfo("help", "this command")
+    meta.arg_builder \
+      .add_default_argument("subcommand", str, "name of the command to show help for", default="")
 
-    """
-    command_list = self._modules.commands if command == "" else [command]
+    def _print_help(subcommand: str):
+      sys.stdout.write(self.generate_help(subcommand))
+
+    self._modules.inject(CommandModule(meta, "discovery", _print_help))
+
+  def generate_help(self, subcommand: str = ""):
+    filename = self._options.filename
+    end_line = "\n"
+    help_str = f"Usage:{end_line}"
+
+    command_list = self._modules.commands if subcommand == "" else [subcommand]
 
     for command in command_list:
       cmd_meta: CommandMetaInfo = self._modules[command].meta_info
@@ -83,33 +93,47 @@ class CommandsDiscovery(object):
       if not cmd_meta:
         continue
 
-      args = {}
-      args.update(cmd_meta.get_arguments_builder().arguments)
-      args.update(cmd_meta.get_arguments_builder().default_arguments)
+      args = []
+      arg_details = []
+      start_spacing: str = " " * 5
+      try:
+        max_arg_len: int = len(max(cmd_meta.arg_builder.all_arguments.keys(), key=len))
+      except ValueError:
+        max_arg_len: int = 0
 
-      cmd_arguments_help = {name: value.item_help for name, value in args.items() if value.item_help}
+      def format_help_description(description: str) -> str:
+        if "\n" not in description:
+          return description
+        description_lines = description.split("\n")
+        new_description: List[str] = [description_lines[0]]
+        new_description += [f"{start_spacing}{' ' * (max_arg_len + 3)}{line}" for line in description_lines[1:]]
+        return "\n".join(new_description)
 
-      if len(cmd_arguments_help) > 0:
-        help_str += """
-        {cmd} [{args}] - {cmd_help}
+      for key, value in cmd_meta.arg_builder.default_arguments.items():
+        additional_spacing = " " * (max_arg_len - len(key))
+        default_str = f"(Default: {value.default})" if value.default else ""
+        args.append(f"[{key}]" if value.has_default else key)
+        arg_details.append(f"{start_spacing}{key}{additional_spacing} - {format_help_description(value.item_help)} {default_str}")
 
-        Argument details:
-        {arg_details}
+      for key, value in cmd_meta.arg_builder.arguments_by_alias.items():
+        additional_spacing = " " * (max_arg_len - len(key))
+        default_str = f"(Default: {value.default})" if value.default else ""
+        args.append(f"[--{key}]" if value.has_default else f"--{key}")
+        arg_details.append(f"{start_spacing}{key}{additional_spacing} - {format_help_description(value.item_help)} {default_str}")
 
+      help_str += """
+ {filename} {cmd} {args}
+{cmd_help}
 
+{arg_details}
         """.format(
-          cmd=command,
-          args=" | ".join(cmd_arguments_help.keys()),
-          cmd_help=cmd_meta.help,
-          arg_details="\n".join(["{} - {}".format(k, v) for k, v in cmd_arguments_help.items()])
-        )
+        filename=filename,
+        cmd=command,
+        args=" ".join(args),
+        cmd_help=f"{start_spacing}{cmd_meta.help}",
+        arg_details="\n".join(arg_details)
+      )
 
-      else:
-        help_str += """
-        {cmd} - {cmd_help}""".format(
-          cmd=command,
-          cmd_help=cmd_meta.help
-        )
     return help_str
 
   @property
@@ -151,12 +175,13 @@ class CommandsDiscovery(object):
 
   def start_application(self, kwargs: dict = None):
     # ToDO: add default command to be executed if no passed
+    self.__inject_help_command()
     try:
       command = self._get_command(injected_args=kwargs, fail_on_unknown=True)
       command.execute(injected_args=kwargs)
     except NoCommandException as e:
       if e.command_name:
-        sys.stdout.write(self.generate_help(filename=self._options.filename))
+        sys.stdout.write(self.generate_help())
       return
     except CommandArgumentException as e:
       sys.stdout.write(f"Application arguments exception: {str(e)}\n")

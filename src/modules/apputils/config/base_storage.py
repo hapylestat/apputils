@@ -21,12 +21,13 @@
 import sys
 import os
 
+
 SECRET_FILE_NAME = "user.key"
 CONFIGURATION_STORAGE_FILE_NAME = "configuration.db"
 
 
 class BaseStorage(object):
-  def __init__(self, app_name: str, app_version: str):
+  def __init__(self):
     if sys.platform.startswith('java'):
       import platform
       os_name = platform.java_ver()[3][0]
@@ -39,9 +40,11 @@ class BaseStorage(object):
     else:
       self.__system: str = sys.platform
 
-    self.__config_dir: str = self.__user_data_dir(appname=app_name, version=app_version)
-    if self.__config_dir and not os.path.exists(self.__config_dir):
-      os.makedirs(self.__config_dir, exist_ok=True)
+      from openstack_cli import __app_name__ as app_name, __app_version__ as app_version
+      self.__config_dir: str = self.__user_data_dir(appname=app_name, version=None)
+
+      if self.__config_dir and not os.path.exists(self.__config_dir):
+        os.makedirs(self.__config_dir, exist_ok=True)
 
   def __user_data_dir(self, appname: str = None, version: str = None) -> str:
     if self.__system == "win32":

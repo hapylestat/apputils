@@ -17,9 +17,9 @@
 #
 #
 
+import asyncio
 from collections import OrderedDict
-from types import FunctionType
-from typing import Dict, List
+from typing import Dict, Callable
 
 
 class CommandArgumentException(Exception):
@@ -49,12 +49,16 @@ class CommandArgumentItem(object):
     self.default = default
     self.alias = alias
 
+  @property
+  def has_default(self):
+    return self.default is not None
+
 
 class CommandArgumentsBuilder:
   def __init__(self):
     self._args: Dict[str, CommandArgumentItem] = {}
     self._alias_args: Dict[str, CommandArgumentItem] = {}
-    self._default_args: List[CommandArgumentItem] = []
+    self._default_args: Dict[str, CommandArgumentItem] = OrderedDict()
     self.__allowed_default_types = [int, str, float, list]
     self.__allowed_types = self.__allowed_default_types + [bool]
     self.__is_default_arg_flag_used = False
@@ -100,12 +104,11 @@ class CommandArgumentsBuilder:
 
   @property
   def default_arguments(self) -> Dict[str, CommandArgumentItem]:
-    d = OrderedDict()
+    return self._default_args
 
-    for arg in self._default_args:
-      d.update({arg.name: arg})
-
-    return d
+  @property
+  def all_arguments(self) -> Dict[str, CommandArgumentItem]:
+    return {**self._default_args, **self._alias_args}
 
   def add_default_argument(self, name: str, value_type: type, item_help: str, default: object = None):
     """
@@ -123,7 +126,7 @@ class CommandArgumentsBuilder:
       if not isinstance(default, value_type):
         raise CommandArgumentException("Invalid default type for argument".format(name))
 
-    self._default_args.append(CommandArgumentItem(name, value_type, item_help, default=default))
+    self._default_args.update({name: CommandArgumentItem(name, value_type, item_help, default=default)})
     return self
 
   @property
@@ -131,7 +134,7 @@ class CommandArgumentsBuilder:
     return self.__is_default_arg_flag_used
 
   def get_default_argument(self, index: int) -> CommandArgumentItem:
-    return self._default_args[index]
+    return list(self._default_args.values())[index]
 
 
 class CommandMetaInfo(object):
@@ -161,7 +164,8 @@ class CommandMetaInfo(object):
   def default_arguments(self):
     return self._arguments.default_arguments
 
-  def get_arguments_builder(self) -> CommandArgumentsBuilder:
+  @property
+  def arg_builder(self) -> CommandArgumentsBuilder:
     return self._arguments
 
   def __convert_value_to_type(self, value: str, _type: type):
@@ -212,16 +216,19 @@ class CommandMetaInfo(object):
 
     return parsed_arguments_dict
 
-  def transform_arguments(self, kwargs: dict, fail_on_unknown: bool = False):
+  def transform_arguments(self, kwargs: dict, kwargs_injected: set, fail_on_unknown: bool = False):
     parsed_arguments_dict = {}
     arguments = self._arguments.arguments_by_alias
 
     if fail_on_unknown:
-      unknown_commands = set(kwargs.keys()) - set(arguments.keys())
+      unknown_commands = set(kwargs.keys()) - set(arguments.keys()) - kwargs_injected
       if unknown_commands:
         raise CommandArgumentException(f"Command contains unknown arguments  \"{', '.join(unknown_commands)}\"")
 
     for arg_name in arguments:
+      if arg_name in kwargs_injected:
+        continue
+
       arg_meta: CommandArgumentItem = arguments[arg_name]
       try:
         if arg_meta.value_type:
@@ -239,11 +246,11 @@ class CommandMetaInfo(object):
 
 
 class CommandModule(object):
-  def __init__(self, meta_info: CommandMetaInfo, classpath: str, entry_point: FunctionType):
+  def __init__(self, meta_info: CommandMetaInfo, classpath: str, entry_point: Callable):
     self.__name = meta_info.name
     self.__classpath = classpath
     self.__meta_info = meta_info
-    self.__entry_point: FunctionType = entry_point
+    self.__entry_point: Callable = entry_point
     self.__args = None
 
   def set_argument(self, args: list, kwargs: dict, injected_args: set = None, fail_on_unknown=False):
@@ -251,7 +258,7 @@ class CommandModule(object):
       injected_args = set()
 
     args = self.__meta_info.transform_default_arguments(args, fail_on_unknown=fail_on_unknown)
-    args.update(self.__meta_info.transform_arguments(kwargs, fail_on_unknown=fail_on_unknown))
+    args.update(self.__meta_info.transform_arguments(kwargs, injected_args, fail_on_unknown=fail_on_unknown))
 
     f_args = self.entry_point_args
 
@@ -298,8 +305,9 @@ class CommandModule(object):
   def execute(self,  injected_args: dict = None):
     self.__entry_point(**self.__get_args(self.__args, injected_args))
 
-  async def execute_async(self, injected_args: dict = None):
-    await self.__entry_point(**self.__get_args(self.__args, injected_args))
+  @asyncio.coroutine
+  def execute_async(self, injected_args: dict = None):
+    yield from self.__entry_point(**self.__get_args(self.__args, injected_args))
 
 
 class CommandModules(object):
@@ -341,3 +349,8 @@ class CommandModules(object):
         meta_info=meta_info,
         entry_point=m_dict[self.__entry_point]
       )
+
+  def inject(self, module: CommandModule):
+    if not module:
+      return
+    self.__modules[module.meta_info.name] = module

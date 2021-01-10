@@ -1,115 +1,139 @@
-#  Licensed to the Apache Software Foundation (ASF) under one or more
-#  contributor license agreements.  See the NOTICE file distributed with
-#  this work for additional information regarding copyright ownership.
-#  The ASF licenses this file to You under the Apache License, Version 2.0
-#  (the "License"); you may not use this file except in compliance with
-#  the License.  You may obtain a copy of the License at
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
 #
-#      http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-#
-#  Github: https://github.com/hapylestat/apputils
-#
-#
-
-
-from .base_storage import BaseStorage
-from .sql_storage import SQLStorage, StorageProperty, StoragePropertyType
-from typing import ClassVar
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import sys
 import time
-from getpass import getpass
+from typing import ClassVar
+
+from .sql_storage import SQLStorage, StorageProperty, StoragePropertyType
 
 
-class Configuration(object):
+class BaseConfiguration(object):
   __cache_invalidation: float = time.mktime(time.gmtime(8 * 3600))  # 8 hours
-  __options_table = "general"
+  _options_table = "general"
   __cache_table = "cache"
 
-  def __init__(self, app_name: str, app_version: str, storage_cls: ClassVar[BaseStorage] = SQLStorage):
-    self.__storage = storage_cls(app_name=app_name, app_version=app_version)
+  __options_amount = 3
+  __options_flags_name = "options"
+  __option_conf_initialized = 0
+  __option_credentials_cached = 1
+  __option_use_master_password = 2
+
+  def __init__(self, upgrade_manager=None):
+    """
+    :type upgrade_manager .upgrades.UpgradeManager
+    """
+    from .upgrades import UpgradeManager
+
+    self.__upgrade_manager = upgrade_manager if upgrade_manager else UpgradeManager()
+    self.__storage = SQLStorage(lazy=True)
+    self.__options = [0] * self.__options_amount
 
   def initialize(self):
-    if self.__is_conf_initialized:
-      self.__storage.initialize_key()
+    """
+    :rtype BaseConfiguration
+    """
+    self.__read_options()
+    if self.is_conf_initialized:
+      self._storage.initialize_key()
       try:
-        assert self.__test_encrypted_property == "test"
+        assert self._test_encrypted_property == "test"
       except ValueError as e:
         print(f"Error: {str(e)}")
         sys.exit(-1)
+
+      self.__upgrade_manager.upgrade(self, self._storage)
     else:
-      self.__initial_configuration()
+      self.__upgrade_manager.init_config(self, self._storage)
 
-  def __ask_text_question(self, prompt: str, encrypted: bool = False) -> str:
-    f = getpass if encrypted else input
-    answer = f(prompt)
-    return answer
+    return self
 
-  def __ask_question(self, prompt: str, encrypted: bool = False) -> bool:
-    answer = self.__ask_text_question(prompt, encrypted).lower()
-    return answer == "y" or answer == "yes"
+  def __read_options(self):
+    if self._options_table in self._storage.tables:
+      opts = self._storage.get_property(self._options_table, self.__options_flags_name)
+      if opts.value:
+        self.__options = [int(ch) for ch in opts.value]
 
-  @property
-  def configuration_dir(self):
-    return self.__storage.configuration_dir
-
-  def set_property(self, name: str, value: str, is_encrypted: bool = False):
-    self.__storage.set_text_property(self.__options_table, name, value, encrypted=is_encrypted)
-
-  def get_property(self, name: str) -> str:
-    return self.__storage.get_property(self.__options_table, name, StorageProperty()).value
-
-  def is_exists(self, name: str) -> bool:
-    return self.__storage.property_existed(self.__options_table, name)
+  def __save_options(self):
+    val = ''.join([str(ch) for ch in self.__options])
+    self._storage.set_text_property(self._options_table, self.__options_flags_name, val)
 
   @property
-  def __is_conf_initialized(self):
-    return self.__storage.get_property(self.__options_table, "initialized", StorageProperty()).value == "1"
-
-  @__is_conf_initialized.setter
-  def __is_conf_initialized(self, value):
-    self.__storage.set_text_property(self.__options_table, "initialized", "1")
+  def _storage(self) -> SQLStorage:
+    return self.__storage
 
   @property
-  def __test_encrypted_property(self):
-    return self.__storage.get_property(self.__options_table, "enctest", StorageProperty()).value
+  def is_conf_initialized(self):
+    return self.__options[self.__option_conf_initialized] == 1
+
+  @is_conf_initialized.setter
+  def is_conf_initialized(self, value):
+    self.__options[self.__option_conf_initialized] = 1  # only True could be
+    self.__save_options()
+
+  @property
+  def __credentials_cached(self) -> bool:
+    return self.__options[self.__options_amount] == 1
+
+  @__credentials_cached.setter
+  def __credentials_cached(self, value: bool):
+    self.__options[self.__option_credentials_cached] = 1 if value else 0
+    self.__save_options()
+
+  @property
+  def __use_master_password(self):
+    return self.__options[self.__option_use_master_password] == 1
+
+  @__use_master_password.setter
+  def __use_master_password(self, value: bool):
+    self.__options[self.__option_use_master_password] = 1 if value else 0
+    self.__save_options()
+
+  @property
+  def _test_encrypted_property(self):
+    return self._storage.get_property(self._options_table, "enctest", StorageProperty()).value
+
+  @_test_encrypted_property.setter
+  def _test_encrypted_property(self, value):
+    self._storage.set_text_property(self._options_table, "enctest", value, encrypted=True)
 
   def invalidate_cache(self):
-    self.__storage.reset_properties_update_time(self.__cache_table)
+    self._storage.reset_properties_update_time(self.__cache_table)
 
-  @__test_encrypted_property.setter
-  def __test_encrypted_property(self, value):
-    self.__storage.set_text_property(self.__options_table, "enctest", value, encrypted=True)
+  def is_cached(self, clazz: ClassVar) -> bool:
+    p: StorageProperty = self._storage.get_property(self.__cache_table, clazz.__name__)
 
-  def __initial_configuration(self):
-    print("""
-    Encryption key
-    --------------
-    It is used to secure user-sensitive data like username or passwords. The key is generated by using
-    master password as salt and could be cached on disk to avoid re-typing it each time, else master password
-    need to be entered each time.
+    if p.updated:
+      time_delta: float = time.time() - p.updated
+      if time_delta >= self.__cache_invalidation:
+        return False
+    return p.value not in ('', {})
 
-    """)
+  def get_cache(self, clazz: ClassVar) -> str or dict or None:
+    p: StorageProperty = self._storage.get_property(self.__cache_table, clazz.__name__)
 
-    use_master_password: bool = self.__ask_question("Secure credentials with master password (y/n): ")
-    if use_master_password:
-      store_encryption_key: bool = self.__ask_question("Cache encryption key on disk (y/n): ")
-    else:  # if not master key is used, default one would be generated anyway
-      store_encryption_key: bool = True
+    if p.updated:
+      time_delta: float = time.time() - p.updated
+      if time_delta >= self.__cache_invalidation:
+        return None
 
-    self.__storage.create_key(store_encryption_key, None if use_master_password else "")
-    self.__storage.initialize_key()
+    return p.value
 
-    self.__test_encrypted_property = "test"
-    self.__is_conf_initialized = True
-
-    print("Tool configuration is done, thanks!")
+  def set_cache(self, clazz: ClassVar, v: str or dict):
+    self._storage.set_text_property(self.__cache_table, clazz.__name__, v, encrypted=True)
 
   def reset(self):
-    self.__storage.reset()
+    self._storage.reset()
+
