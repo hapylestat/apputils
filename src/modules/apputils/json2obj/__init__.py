@@ -16,7 +16,6 @@
 #  Github: https://github.com/hapylestat/apputils
 #
 #
-
 import json
 from types import FunctionType
 from typing import get_type_hints, get_args, ClassVar, Dict
@@ -112,7 +111,7 @@ class SerializableObject(object):
       # ToDo: inject class decode via object_hook/object_pairs_hook with provided schema
       serialized_obj = json.loads(serialized_obj)
 
-    assert type(serialized_obj) is Dict or serialized_obj is None
+    assert type(serialized_obj) is dict or serialized_obj is None
 
     if len(kwargs) > 0:
       if serialized_obj:
@@ -149,10 +148,19 @@ A number of errors happen:
     schema_args = list(get_args(schema)) if is_generic else [] if _type is list else [schema]
     property_type = schema_args[0] if schema_args else None
 
-    if property_type and not isinstance(property_value, _type) \
+    if property_type in (int, float, complex) and isinstance(property_value, str) and property_value == "":
+      property_value = 0  # this is really weird fix for bad written API
+
+    if property_type and property_value is not None and not isinstance(property_value, _type) \
       and not (issubclass(property_type, SerializableObject) and isinstance(property_value, dict)):
 
-      self.__error__.append(f"Conflicting type in schema and data for object '{self.__class__.__name__}'")
+      self.__error__.append(
+        "Conflicting type in schema and data for object '{}', expecting '{}' but got '{}' (value: {})".format(
+          self.__class__.__name__,
+          property_type.__name__,
+          type(property_value).__name__,
+          property_value
+        ))
       return None
 
     if _type is list:
@@ -160,15 +168,19 @@ A number of errors happen:
     elif _type is dict:
       return {k: self.__deserialize_transform(v, schema_args[1]) for k, v in property_value.items()}
     else:
-      return _type(property_value) if _type else property_value
+      return _type(property_value) if _type and property_value is not None else property_value
 
   def __deserialize(self, d: dict):
     self.__error__ = []
     clazz = self.__class__
-    properties = {k: v for k, v in clazz.__dict__.items() if not k.startswith("__") and not isinstance(v, FunctionType)}
+    exclude_types = (FunctionType, property, classmethod, staticmethod)
+    properties = {k: v for k, v in clazz.__dict__.items() if not k.startswith("__") and not isinstance(v, exclude_types)}
     annotations = get_type_hints(clazz)
 
     for property_name, schema in annotations.items():
+      if property_name.startswith("__"):
+        continue
+
       try:
         # the way to map properties like "a-b" to python fields
         resolved_prop = self.__aliases__[property_name]
