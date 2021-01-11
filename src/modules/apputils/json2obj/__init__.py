@@ -101,7 +101,7 @@ class SerializableObject(object):
   def __init__(self, serialized_obj: str or dict or object or None = None, **kwargs):
     self.__error__ = []
 
-    if type(serialized_obj) is self:
+    if isinstance(serialized_obj, type(self)):
       import copy
       self.__dict__ = copy.deepcopy(serialized_obj.__dict__)
       self.__annotations__ = copy.deepcopy(serialized_obj.__annotations__)
