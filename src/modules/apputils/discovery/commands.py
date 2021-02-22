@@ -18,7 +18,7 @@
 #
 
 from collections import OrderedDict
-from typing import Dict, Callable, List, Iterable, get_origin, Optional
+from typing import Dict, Callable, List, get_origin, Optional
 
 
 class CommandArgumentException(Exception):
