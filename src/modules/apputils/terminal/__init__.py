@@ -59,9 +59,37 @@ class TableColumn(object):
     self.sep: str = f" {sep}" if name else ""
 
 
+class TableMaxValue(object):
+  def __init__(self, initial: T = 0):
+    self.__max: T = initial
+
+  def process(self, val: T):
+    if val > self.__max:
+      self.__max = val
+
+  @property
+  def value(self):
+    return self.__max
+
+  def __str__(self):
+    return str(self.__max)
+
+
 class TableSizeColumn(object):
   def __init__(self, value: int):
     self.__value = value
+
+  def __check_type(self, other):
+    if not isinstance(other, TableSizeColumn):
+      raise ValueError("Incompatible operand type")
+
+  def __add__(self, other):
+    self.__check_type(other)
+    return TableSizeColumn(self.__value + other.__value)
+
+  def __sub__(self, other):
+    self.__check_type(other)
+    return TableSizeColumn(self.__value - other.__value)
 
   @property
   def value(self):
