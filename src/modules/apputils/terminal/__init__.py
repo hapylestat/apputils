@@ -26,7 +26,7 @@ from contextlib import ContextDecorator
 from getpass import getpass
 from typing import TypeVar
 
-from .colors import Colors
+from .colors import Colors, ESCAPE_CH
 
 T = TypeVar('T')
 
@@ -137,8 +137,10 @@ class TableOutput(object):
     for c in columns:
       self.__column_pattern.append(f"{{:{c.pos}{c.length}}}{c.sep}")
       self.__column_inv_pattern.append(f"{{:{c.pos}{c.length + c.inv_ch}}}{c.sep}")
+
       self.__sep_columns.append((self.__line if c.name else self.__space) * c.length)
       self.__sep_solid_columns.append(self.__line * (c.length + len(c.sep)))
+
       self.__column_titles.append(c.name)
 
       self.__table_width += c.length + len(c.sep)
@@ -174,13 +176,16 @@ class TableOutput(object):
     print(_line)
 
   def print_row(self, *values: str):
+    _row = "".join([str(i) for i in values])
     if self.__print_row_number:
       values = [str(self.__current_row)] + list(values)
 
     if self.__style == TableStyle.line_highlight:
       print(f"{self.__prev_color}{self.__column_inv_pattern.format(*values)}{Colors.RESET}")
-    else:
+    elif ESCAPE_CH in _row:
       print(self.__column_inv_pattern.format(*values))
+    else:
+      print(self.__column_pattern.format(*values))
 
     if values[-1:][0]:
       self.__prev_color = Colors.BRIGHT_WHITE if self.__prev_color == Colors.BRIGHT_BLACK else Colors.BRIGHT_BLACK
