@@ -26,9 +26,10 @@ from datetime import datetime, timezone
 from asyncio.events import AbstractEventLoop
 from enum import Enum
 
-from typing import Dict, Tuple, List
+from typing import Dict, IO, Mapping, Optional, Tuple, List
 from http.client import HTTPResponse
-from urllib.request import HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, Request, build_opener
+from urllib.request import HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, HTTPRedirectHandler, Request, \
+  build_opener
 from urllib.parse import urlencode
 from io import BytesIO
 try:
@@ -223,6 +224,12 @@ class CURLAuth(object):
     return {"Authorization": f"Basic {token}"}
 
 
+class HTTPRedirectFilter(HTTPRedirectHandler):
+  def redirect_request(self, req: Request, fp: IO[str], code: int, msg: str,
+                       headers: Mapping[str, str], newurl: str) -> Optional[Request]:
+    return None
+
+
 # ToDo: refactor this part
 def __encode_str(data) -> bytes:
   return bytes(data, encoding='utf8')
@@ -256,20 +263,35 @@ def __parse_content(data) -> Tuple[bytes, Dict[str, str]]:
   return response_data, response_headers
 
 
-async def curl_async(loop: AbstractEventLoop, url: str, params: Dict[str, str] = None, auth: CURLAuth = None,
-                     req_type: CurlRequestType = CurlRequestType.GET, data: str or bytes or dict = None,
-                     headers: Dict[str, str] = None, cookies: List[CURLCookie] = None,
-                     timeout: int = None, use_gzip: bool = True, use_stream: bool = False) -> CURLResponse:
+async def curl_async(loop: AbstractEventLoop,
+                     url: str,
+                     params: Dict[str, str] = None,
+                     auth: CURLAuth = None,
+                     req_type: CurlRequestType = CurlRequestType.GET,
+                     data: str or bytes or dict = None,
+                     headers: Dict[str, str] = None,
+                     cookies: List[CURLCookie] = None,
+                     timeout: int = None,
+                     use_gzip: bool = True,
+                     use_stream: bool = False,
+                     follow_redirect: bool = True) -> CURLResponse:
   return await loop.run_in_executor(
     None,
-    lambda: curl(url, params, auth, req_type, data, headers, cookies, timeout, use_gzip, use_stream)
+    lambda: curl(url, params, auth, req_type, data, headers, cookies, timeout, use_gzip, use_stream, follow_redirect)
   )
 
 
-def curl(url: str, params: Dict[str, str] = None, auth: CURLAuth = None,
-         req_type: CurlRequestType = CurlRequestType.GET, data: str or bytes or dict = None,
-         headers: Dict[str, str] = None, cookies: List[CURLCookie] = None, timeout: int = None, use_gzip: bool = True,
-         use_stream: bool = False) -> CURLResponse:
+def curl(url: str,
+         params: Dict[str, str] = None,
+         auth: CURLAuth = None,
+         req_type: CurlRequestType = CurlRequestType.GET,
+         data: str or bytes or dict = None,
+         headers: Dict[str, str] = None,
+         cookies: List[CURLCookie] = None,
+         timeout: int = None,
+         use_gzip: bool = True,
+         use_stream: bool = False,
+         follow_redirect: bool = True) -> CURLResponse:
   """
   Make request to web resource
 
@@ -283,6 +305,7 @@ def curl(url: str, params: Dict[str, str] = None, auth: CURLAuth = None,
   :param timeout: Request timeout
   :param use_gzip: Accept gzip and deflate response from the server
   :param use_stream: Do not parse content of response ans stream it via raw property
+  :param follow_redirect Do follow HTTP redirects or not
   :return Response object
   """
   post_req = [CurlRequestType.POST, CurlRequestType.PUT]
@@ -330,6 +353,9 @@ def curl(url: str, params: Dict[str, str] = None, auth: CURLAuth = None,
       temp_cookies.extend(_headers["cookie"].split("; "))
 
     _headers["cookie"] = "; ".join(temp_cookies)
+
+  if not follow_redirect:
+    handler_chain.append(HTTPRedirectFilter)
 
   director = build_opener(*handler_chain)
   req = Request(url, **req_args)
