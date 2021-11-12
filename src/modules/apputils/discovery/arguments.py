@@ -20,11 +20,13 @@
 import os
 import sys
 
+from typing import List
+
 
 class CommandLineOptions(object):
 
-  def __init__(self):
-    self.__argv = sys.argv[1:]
+  def __init__(self, *argv: List[str]):
+    self.__argv = argv if argv else sys.argv[1:]
     self.__file_path = os.path.abspath(sys.argv[0])
     self.__filename = os.path.basename(self.__file_path)
     self.__directory = os.path.dirname(self.__file_path)

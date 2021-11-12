@@ -174,10 +174,9 @@ class CommandsDiscovery(object):
 
     return cmd.name, args[1]
 
-  def start_application(self, kwargs: dict = None):
+  def start_application(self, kwargs: dict = None, default_command: str = ""):
     from .help import generate_help
 
-    # ToDO: add default command to be executed if no passed
     self.__inject_help_command()
     try:
       cmd_list = self._get_command(injected_args=kwargs, fail_on_unknown=True)
@@ -185,13 +184,15 @@ class CommandsDiscovery(object):
         command.execute(injected_args=kwargs)
     except NotImplementedCommandException:
       sys.stdout.write(generate_help(self._modules, self._options, *self.__get_modules_from_args()))
-      pass
     except NoCommandException as e:
-      if e.command_name:
+      if default_command:
+        _argv = [default_command] + self._options.args + [f"--{k}={v}" for k, v in self._options.kwargs.items()]
+        self._options = CommandLineOptions(*_argv)
+        self.start_application(kwargs)
+        return
+      elif e.command_name:
         sys.stdout.write(generate_help(self._modules, self._options))
       else:
         sys.stdout.write("No command provided, use 'help' to check the list of available commands")
-      return
     except CommandArgumentException as e:
       sys.stdout.write(f"Application arguments exception: {str(e)}\n")
-      return
