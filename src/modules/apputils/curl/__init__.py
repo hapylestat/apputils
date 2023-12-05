@@ -17,25 +17,18 @@
 #
 #
 
-import json
-import base64
-import gzip
-import zlib
-import re
-from datetime import datetime, timezone
-from asyncio.events import AbstractEventLoop
-from enum import Enum
+import re, json, base64, gzip, zlib
 
-from typing import Dict, IO, Mapping, Optional, Tuple, List
+from datetime import datetime, timezone
+from io import BytesIO
+from enum import Enum
+from asyncio.events import AbstractEventLoop
+from typing import Dict, IO, Mapping, Optional, Tuple, List, Union
 from http.client import HTTPResponse
 from urllib.request import HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, HTTPRedirectHandler, Request, \
   build_opener
+from urllib.error import URLError, HTTPError
 from urllib.parse import urlencode
-from io import BytesIO
-try:
-  from urllib.request import URLError, HTTPError
-except ImportError:
-  from urllib.error import URLError, HTTPError
 
 
 class CurlRequestType(Enum):
@@ -119,7 +112,7 @@ class CURLResponse(object):
     else:
       return data
 
-  def __decode_compressed(self, data: bytes or str):
+  def __decode_compressed(self, data: bytes or str) -> bytes:
     if isinstance(data, bytes) and "Content-Encoding" in self._headers:
 
       if "gzip" in self._headers["Content-Encoding"] or 'x-gzip' in self._headers["Content-Encoding"]:
@@ -130,54 +123,54 @@ class CURLResponse(object):
     return data
 
   @property
-  def code(self):
+  def code(self) -> int:
     """
     :return: HTTP Request Response code
     """
     return self._code
 
   @property
-  def headers(self):
+  def headers(self) -> Dict[str, Union[str, List[str]]]:
     """
     :return: HTTP Response Headers
     """
-    return self._headers
+    _headers = {}
+    for k, v in self._headers.items():
+      if k in _headers:
+        if not isinstance(_headers[k], list):
+          _headers[k] = [_headers[k]]
+        _headers[k].append(v)
+        continue
+
+      _headers[k] = v
+
+    return _headers
 
   @property
-  def content(self):
-    """
-    :return: Text content of the response (unzipped and decoded)
-    """
-    if not self._is_stream:
-      return self.__decode_response(self._content)
-    else:
-      raise TypeError("Stream content could be obtained only via raw property")
+  def content(self) -> Union[str, HTTPResponse]:
+    return self._director_result if self._is_stream else self.__decode_response(self._content)
 
   @property
-  def raw(self) -> str or HTTPResponse:
-    """
-    :return: Raw content of the response
-    """
-    return self._director_result if self._is_stream else self._content
+  def raw(self) -> Union[str, HTTPResponse]:
+    return self.content
 
-  def from_json(self):
+  def from_json(self) -> Union[Dict, None]:
     """
     :return: Return parsed json object from the response, if possible.
              If operation fail, will be returned None
-
-    :rtype dict
     """
     try:
       return json.loads(self.content)
     except ValueError:
       return None
 
+  @property
   def response_cookies(self) -> Dict[str, CURLCookie]:
-    return {
-      value[0]: CURLCookie(*value)
-      for item in self._headers.items()
-      if item[0].lower() == "set-cookie" and (value := item[1].split("=", maxsplit=1))
-    }
+    return [
+      { parts[0]: CURLCookie(*parts) for v in values if (parts := v.split("=", maxsplit=1))}
+      for k, v in self.headers.items()
+      if k.lower() == "set-cookie" and (values := (v if isinstance(v, list) else [v]))
+    ][0]
 
 
 class CURLAuth(object):
