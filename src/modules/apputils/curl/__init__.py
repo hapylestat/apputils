@@ -149,6 +149,13 @@ class CURLResponse(object):
   @property
   def content(self) -> Union[str, HTTPResponse]:
     return self._director_result if self._is_stream else self.__decode_response(self._content)
+    
+  def close_stream(self):
+    if not self._is_stream:
+      return
+
+    if not self._director_result.closed:
+      self._director_result.close()
 
   @property
   def raw(self) -> Union[str, HTTPResponse]:
