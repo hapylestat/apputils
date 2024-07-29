@@ -169,7 +169,9 @@ A number of errors happen:
     elif _type is dict:
       return {k: self.__deserialize_transform(v, schema_args[1] if schema_len == 2 else type(v)) for k, v in property_value.items()}
     else:
-      return _type(property_value) if _type and property_value is not None else property_value
+      return _type(property_value) \
+        if _type and property_value is not None and not isinstance(property_value, _type)\
+        else property_value
 
   def __deserialize(self, d: dict):
     self.__error__ = []
