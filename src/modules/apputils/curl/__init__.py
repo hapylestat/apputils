@@ -49,7 +49,7 @@ class CURLCookie(object):
     self.__name: str = name
     self.__options: Dict[str, str] = {}
     self.__value: str = ""
-    self.__expiry_date: datetime or None = None
+    self.__expiry_date: Union[datetime, None] = None
     if not value:
       return
 
@@ -89,30 +89,24 @@ class CURLCookie(object):
 
 
 class CURLResponse(object):
-  def __init__(self, director_open_result: HTTPResponse or HTTPError, is_stream: bool = False):
+  def __init__(self, director_open_result: Union[HTTPResponse, HTTPError], is_stream: bool = False):
     self._code: int = director_open_result.getcode()
-    self._headers = director_open_result.info()
+    self._headers: Dict[str, Union[str, List[str]]] = self._parse_headers(director_open_result.info())
+    self._content_encoding: Union[None, str] = None
     self._is_stream = is_stream
     self._director_result = director_open_result
 
     if not self._is_stream:
       self._content = director_open_result.read()
 
-  def __decode_response(self, data: bytes or str) -> str:
+  def __decode_response(self, data: Union[bytes, str]) -> Union[bytes, str]:
     data = self.__decode_compressed(data)
-    if isinstance(data, bytes) and "Content-Type" in self._headers and "charset" in self._headers["Content-Type"]:
-      charset = list(filter(lambda x: "charset" in x, self._headers["Content-Type"].split(';')))
-      if len(charset) > 0:
-        charset = charset[0].split('=')
-        if len(charset) == 2:
-          return data.decode(charset[1].lower())
-      return data.decode('utf-8')
-    elif isinstance(data, bytes):
-      return data.decode('utf-8')
+    if isinstance(data, bytes):
+      return data.decode(self.content_encoding)
     else:
       return data
 
-  def __decode_compressed(self, data: bytes or str) -> bytes:
+  def __decode_compressed(self, data: Union[bytes, str]) -> bytes:
     if isinstance(data, bytes) and "Content-Encoding" in self._headers:
 
       if "gzip" in self._headers["Content-Encoding"] or 'x-gzip' in self._headers["Content-Encoding"]:
@@ -123,33 +117,47 @@ class CURLResponse(object):
     return data
 
   @property
+  def content_encoding(self) -> str:
+    if self._content_encoding is not None:
+      return self._content_encoding
+
+    if "Content-Encoding" in self.headers:
+      content_encoding = self.headers["Content-Encoding"].split(';')
+      for part in content_encoding:
+        if "charset" in part:
+          self._content_encoding = part.partition("=")[2].lower()
+
+    return "utf-8" if self._content_encoding is None else self._content_encoding
+
+  @property
   def code(self) -> int:
     """
     :return: HTTP Request Response code
     """
     return self._code
 
-  @property
-  def headers(self) -> Dict[str, Union[str, List[str]]]:
+  def _parse_headers(self, headers) -> Dict[str, Union[str, List[str]]]:
     """
     :return: HTTP Response Headers
     """
     _headers = {}
-    for k, v in self._headers.items():
+    for k, v in headers.items():
       if k in _headers:
         if not isinstance(_headers[k], list):
           _headers[k] = [_headers[k]]
         _headers[k].append(v)
         continue
-
       _headers[k] = v
-
     return _headers
+
+  @property
+  def headers(self) -> Dict[str, Union[str, List[str]]]:
+    return self._headers
 
   @property
   def content(self) -> Union[str, HTTPResponse]:
     return self._director_result if self._is_stream else self.__decode_response(self._content)
-    
+
   def close_stream(self):
     if not self._is_stream:
       return
@@ -268,7 +276,7 @@ async def curl_async(loop: AbstractEventLoop,
                      params: Dict[str, str] = None,
                      auth: CURLAuth = None,
                      req_type: CurlRequestType = CurlRequestType.GET,
-                     data: str or bytes or dict = None,
+                     data: Union[str, bytes, dict] = None,
                      headers: Dict[str, str] = None,
                      cookies: List[CURLCookie] = None,
                      timeout: int = None,
@@ -277,7 +285,8 @@ async def curl_async(loop: AbstractEventLoop,
                      follow_redirect: bool = True) -> CURLResponse:
   return await loop.run_in_executor(
     None,
-    lambda: curl(url, params, auth, req_type, data, headers, cookies, timeout, use_gzip, use_stream, follow_redirect)
+    curl,
+    url, params, auth, req_type, data, headers, cookies, timeout, use_gzip, use_stream, follow_redirect
   )
 
 
@@ -285,7 +294,7 @@ def curl(url: str,
          params: Dict[str, str] = None,
          auth: CURLAuth = None,
          req_type: CurlRequestType = CurlRequestType.GET,
-         data: str or bytes or dict = None,
+         data: Union[str, bytes, dict] = None,
          headers: Dict[str, str] = None,
          cookies: List[CURLCookie] = None,
          timeout: int = None,

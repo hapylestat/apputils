@@ -16,9 +16,23 @@
 #  Github: https://github.com/hapylestat/apputils
 #
 #
-import json
+
 from types import FunctionType
-from typing import get_type_hints, get_args, ClassVar, Dict
+from typing import get_type_hints, get_args, Dict, Union
+
+import enum
+import json
+
+try:
+  import yaml
+  YAML_ENABLED: bool = True
+except ImportError:
+  YAML_ENABLED: bool = False
+
+
+class SODumpType(enum.Enum):
+  JSON = 1
+  YAML = 2
 
 
 class SerializableObject(object):
@@ -26,7 +40,7 @@ class SerializableObject(object):
    SerializableObject is a basic class, which providing Object to Dict, Dict to Object conversion with
    basic fields validation.
 
-   For example we have such dictionary:
+   For the example we have such dictionary:
 
    my_dict = {
      name: "Amy",
@@ -68,7 +82,7 @@ class SerializableObject(object):
 
   Example class:
    class MyObject(SerializableObject):
-     __mapping__ = {
+     __grouping__ = {
       'uris' : '_url'
      }
 
@@ -82,23 +96,28 @@ class SerializableObject(object):
   }
 
   """
-  __mapping__: Dict = {}
+  __grouping__: Dict = {}
 
   """
-  Alias json key to proper PyObject field name.
+  Map json key to proper PyObject field name.
 
   For example:
    'a:b' -> 'a_b"
 
    class MyObject(SerializableObject):
-     __aliases__ = {
+     __mapping__ = {
        'existing_field': 'json_key',
        'a_b' : 'a:b'
      }
   """
-  __aliases__: Dict = {}
+  __mapping__: Dict = {}
 
-  def __init__(self, serialized_obj: str or dict or object or None = None, **kwargs):
+  """
+  Saves input file type during the initial parsing, to output it in the same format
+  """
+  __file_type__: SODumpType = SODumpType.JSON
+
+  def __init__(self, serialized_obj: Union[str, dict, object, None] = None, **kwargs):
     self.__error__ = []
 
     if isinstance(serialized_obj, type(self)):
@@ -108,23 +127,32 @@ class SerializableObject(object):
       return
 
     if isinstance(serialized_obj, str):
-      # ToDo: inject class decode via object_hook/object_pairs_hook with provided schema
-      serialized_obj = json.loads(serialized_obj)
+      try:
+        serialized_obj = json.loads(serialized_obj)
+        self.__file_type__ = SODumpType.JSON
+      except json.JSONDecodeError:
+        pass
 
-    assert type(serialized_obj) is dict or serialized_obj is None
+    if YAML_ENABLED and isinstance(serialized_obj, str):
+      try:
+        serialized_obj = yaml.safe_load(serialized_obj)
+        self.__file_type__ = SODumpType.YAML
+      except yaml.YAMLError:
+        pass
+
+    assert serialized_obj is None or isinstance(serialized_obj, dict)
 
     if len(kwargs) > 0:
-      if serialized_obj:
-        serialized_obj.update(kwargs)
-      else:
-        serialized_obj = kwargs
+      if not serialized_obj:
+        serialized_obj = {}
+      serialized_obj.update(kwargs)
 
     if serialized_obj is None:
       return
 
     self.__deserialize(serialized_obj)
 
-  def __handle_errors(self, clazz: ClassVar, d: dict, missing_definitions, missing_annotations):
+  def __handle_errors(self, clazz: type, d: dict, missing_definitions, missing_annotations):
     for miss_def in missing_definitions:
       v = d[miss_def]
       self.__error__.append(f"{clazz.__name__} class doesn't contain property '{miss_def}: {type(v).__name__}' (value sample:{v})")
@@ -164,7 +192,9 @@ A number of errors happen:
         ))
       return None
 
-    if _type is list:
+    if property_value is None:
+      return None
+    elif _type is list:
       return [property_type(i) for i in property_value] if property_type else property_value
     elif _type is dict:
       return {k: self.__deserialize_transform(v, schema_args[1] if schema_len == 2 else type(v)) for k, v in property_value.items()}
@@ -173,9 +203,9 @@ A number of errors happen:
         if _type and property_value is not None and not isinstance(property_value, _type)\
         else property_value
 
-  def __deserialize(self, d: dict):
+  def __deserialize(self, d: Dict):
     self.__error__ = []
-    clazz = self.__class__
+    clazz: type = self.__class__
     exclude_types = (FunctionType, property, classmethod, staticmethod)
     properties = {k: v for k, v in clazz.__dict__.items() if not k.startswith("__") and not isinstance(v, exclude_types)}
     annotations = get_type_hints(clazz)
@@ -185,9 +215,10 @@ A number of errors happen:
         continue
 
       try:
-        # the way to map properties like "a-b" to python fields
-        resolved_prop = self.__aliases__[property_name]
-      except KeyError:
+        resolved_prop = self.__mapping__[property_name]
+        # if mapped alias is not present but original is - use it
+        assert not (property_name in d and resolved_prop not in d)
+      except (KeyError, AssertionError):
         resolved_prop = property_name
 
       if resolved_prop not in d:  # Property didn't come with data, setting default value
@@ -197,9 +228,9 @@ A number of errors happen:
       property_value = d[resolved_prop]
       self.__setattr__(property_name, self.__deserialize_transform(property_value, schema))
 
-    missing_definitions = set(d.keys()) - set(annotations.keys()) - set(self.__aliases__.values())
-    if self.__mapping__:
-      for definition, pattern in self.__mapping__.items():
+    missing_definitions = set(d.keys()) - set(annotations.keys()) - set(self.__mapping__.values())
+    if self.__grouping__:
+      for definition, pattern in self.__grouping__.items():
         ret = {}
         for unknown_def in missing_definitions:
           if unknown_def.endswith(pattern):
@@ -212,21 +243,31 @@ A number of errors happen:
       missing_annotations = set(properties.keys()) - set(annotations.keys())
       self.__handle_errors(clazz, d, missing_definitions, missing_annotations)
 
-  def __serialize_transform(self, item):
+  def __serialize_transform(self, item, minimal: bool = False):
+    if item is None:
+      return None
+
     _type = type(item)
 
     if _type is list:
       return [self.__serialize_transform(i) for i in item]
     elif _type is dict:
-      return {k: self.__serialize_transform(v) for k, v in item.items() if v is not None}
+      r_obj = {}
+      for k, v in list(item.items()):
+        if minimal and not v:
+          continue
+        r_obj[k] = self.__serialize_transform(v)
+      return r_obj
     else:
-      return self.__serialize_transform(item.serialize()) if issubclass(_type, SerializableObject) else _type(item)
+      return self.__serialize_transform(item.serialize(minimal=minimal)) \
+             if issubclass(_type, SerializableObject)\
+             else _type(item)
 
-  def serialize(self) -> dict:
+  def serialize(self, minimal: bool = False) -> Dict:
     # first of all we need to move defaults from class
     all_properties = dict(self.__class__.__dict__)
     all_properties.update(dict(self.__dict__))
-    _filter_properties = list(self.__aliases__.keys()) + list(self.__mapping__.keys())
+    _filter_properties = list(self.__mapping__.keys()) + list(self.__grouping__.keys())
 
     properties: Dict = {k: v for k, v in all_properties.items()
                         if not k.startswith("__")                                     # filter hidden properties
@@ -234,16 +275,26 @@ A number of errors happen:
                         and k not in _filter_properties                               # exclude "special cases"
                         }
 
-    if self.__aliases__:
-      properties.update({a: all_properties[p] for p, a in self.__aliases__.items() if p in all_properties})
-
     if self.__mapping__:
-      for k in self.__mapping__.keys():
+      properties.update({a: all_properties[p] for p, a in self.__mapping__.items() if p in all_properties})
+
+    if self.__grouping__:
+      for k in self.__grouping__.keys():
         if k in all_properties and isinstance(all_properties[k], dict):
           properties.update(all_properties[k])
 
-    return self.__serialize_transform(properties)
+    return self.__serialize_transform(properties, minimal=minimal)
 
-  def to_json(self) -> str:
-    # ToDo: inject class encode via object_hook/object_pairs_hook with provided schema
-    return json.dumps(self.serialize())
+  def dump(self, indent: int = None, _type: SODumpType = None, minimal: bool = False):
+    if _type is None:
+      _type = self.__file_type__
+
+    if _type == SODumpType.YAML:
+      if not YAML_ENABLED:
+        raise RuntimeError("PyYaml is not installed and it is required for YAML rendering")
+      return yaml.safe_dump(self.serialize(minimal), indent=indent)
+    else:
+      return json.dumps(self.serialize(minimal), indent=indent)
+
+  def to_json(self, indent: int = None, minimal: bool = False) -> str:
+    return self.dump(indent, _type=self.__file_type__, minimal=minimal)

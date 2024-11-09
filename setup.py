@@ -19,7 +19,7 @@ import codecs
 import sys
 import os
 import re
-from distutils import dir_util
+import shutil
 from typing import List
 
 from setuptools import find_packages, setup
@@ -136,8 +136,8 @@ def install_main_application(_app_name: str, _app_version: str, modules: List[Mo
     license='ASF',
     classifiers=[
       "Programming Language :: Python",
-      "Programming Language :: Python :: 3",
-      "Programming Language :: Python :: 3.8",
+      f"Programming Language :: Python :: {sys.version_info.major}",
+      f"Programming Language :: Python :: {sys.version_info.major}.{sys.version_info.minor}",
     ],
     author=_author,
     package_dir={"": my_path},
@@ -167,8 +167,8 @@ def install_module(app_name: str, app_version: str,_modules_path: str, module: M
     license='ASF',
     classifiers=[
       "Programming Language :: Python",
-      "Programming Language :: Python :: 3",
-      "Programming Language :: Python :: 3.8",
+      f"Programming Language :: Python :: {sys.version_info.major}",
+      f"Programming Language :: Python :: {sys.version_info.major}.{sys.version_info.minor}",
     ],
     author=_author,
     package_dir={module.package_name: module.path},
@@ -177,7 +177,7 @@ def install_module(app_name: str, app_version: str,_modules_path: str, module: M
       f"{app_name}=={app_version}"
     ],
     zip_safe=True,
-    python_requires='>=3.8',
+    python_requires='>=3.12',
     setup_requires=[
       'setuptools',
       'wheel',
@@ -187,7 +187,7 @@ def install_module(app_name: str, app_version: str,_modules_path: str, module: M
 
 def cleanup():
   try:
-    dir_util.remove_tree(os.path.join(root_dir, "build"), verbose=1)
+    shutil.rmtree(os.path.join(root_dir, "build"), ignore_errors=True)
   except FileNotFoundError:
     pass
 
