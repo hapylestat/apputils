@@ -18,7 +18,7 @@
 #
 
 from types import FunctionType
-from typing import get_type_hints, get_args, Dict, Union
+from typing import get_type_hints, get_args, Dict, Union, List
 
 import enum
 import json
@@ -111,6 +111,12 @@ class SerializableObject(object):
      }
   """
   __mapping__: Dict = {}
+
+
+  """
+    List of fields to be ignored from serialization/de-serialization
+  """
+  __ignored_fields__: List[str] = []
 
   """
   Saves input file type during the initial parsing, to output it in the same format
@@ -207,11 +213,12 @@ A number of errors happen:
     self.__error__ = []
     clazz: type = self.__class__
     exclude_types = (FunctionType, property, classmethod, staticmethod)
-    properties = {k: v for k, v in clazz.__dict__.items() if not k.startswith("__") and not isinstance(v, exclude_types)}
+    properties = {k: v for k, v in clazz.__dict__.items()
+                  if not k.startswith("__") and k not in self.__ignored_fields__ and not isinstance(v, exclude_types)}
     annotations = get_type_hints(clazz)
 
     for property_name, schema in annotations.items():
-      if property_name.startswith("__"):
+      if property_name.startswith("__") or property_name in self.__ignored_fields__:
         continue
 
       try:
@@ -271,6 +278,8 @@ A number of errors happen:
 
     properties: Dict = {k: v for k, v in all_properties.items()
                         if not k.startswith("__")                                     # filter hidden properties
+                        and not (k.startswith("_") and "__" in k)                     # filter _Obj__property entities
+                        and k not in self.__ignored_fields__                          # filter ignored property
                         and not isinstance(v, (FunctionType, property, classmethod))  # ignore functions
                         and k not in _filter_properties                               # exclude "special cases"
                         }
