@@ -18,11 +18,14 @@
 #
 from typing import Dict
 
-from modules.apputils.json2obj import SerializableObject
+
+from apputils.json2obj import SerializableObject
 
 
 class TestObject(SerializableObject):
   data: Dict[str, str] = {}
+  data1: dict[str, str] = {}
+  listtest: list[list[int]] = []
   test: str = ""
 
 
@@ -31,7 +34,12 @@ test_json = """
   "data": {
     "f1": "v1",
     "f2": "v2"
-  }
+  },
+  "data1": {
+    "f1": "v1",
+    "f2": ""
+  },
+  "listtest": ["v1", "v2"]
 }
 """
 
@@ -39,6 +47,14 @@ test_yaml = """
 data:
   f1: v1
   f2: v2
+data1:
+  f1: v1
+listtest:
+  - - 1
+    - 2
+    - 3
+  - - 4
+    - 5
 """
 
 test_obj = {
@@ -52,8 +68,11 @@ test_obj = {
 def main():
   obj = TestObject(test_yaml)
   a = obj.serialize()
-
+  print("===================================")
+  print(a)
+  print('------------------------------------')
   print(obj.dump(minimal=False))
+  print('====================================')
 
 
 if __name__ == '__main__':

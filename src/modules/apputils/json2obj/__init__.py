@@ -17,8 +17,8 @@
 #
 #
 
-from types import FunctionType
-from typing import get_type_hints, get_args, Dict, Union, List
+from types import FunctionType, MethodType, BuiltinMethodType
+from typing import get_type_hints, get_args
 
 import enum
 import json
@@ -51,8 +51,8 @@ class SerializableObject(object):
    For that we need to declare object view and describe there expected fields:
 
    class PersonView(SerializableObject):
-     name = None
-     age = None
+     name: str = None
+     age: int = None
 
     Instead of None, we can assign another values, they would be used as default if  data dict will not contain
      such fields.  Now it's time for conversion:
@@ -96,7 +96,7 @@ class SerializableObject(object):
   }
 
   """
-  __grouping__: Dict = {}
+  __grouping__: dict = {}
 
   """
   Map json key to proper PyObject field name.
@@ -110,20 +110,20 @@ class SerializableObject(object):
        'a_b' : 'a:b'
      }
   """
-  __mapping__: Dict = {}
+  __mapping__: dict = {}
 
 
   """
     List of fields to be ignored from serialization/de-serialization
   """
-  __ignored_fields__: List[str] = []
+  __ignored_fields__: list[str] = []
 
   """
   Saves input file type during the initial parsing, to output it in the same format
   """
   __file_type__: SODumpType = SODumpType.JSON
 
-  def __init__(self, serialized_obj: Union[str, dict, object, None] = None, **kwargs):
+  def __init__(self, serialized_obj: str|dict|object|None= None, **kwargs):
     self.__error__ = []
 
     if isinstance(serialized_obj, type(self)):
@@ -177,9 +177,9 @@ A number of errors happen:
 """)
 
   def __deserialize_transform(self, property_value, schema):
-    is_generic = '__origin__' in schema.__dict__
-    _type = schema.__dict__['__origin__'] if is_generic else schema
-    schema_args = list(get_args(schema)) if is_generic else [] if _type is list else [schema]
+    is_typing_hint = (_type := getattr(schema, "__origin__", None)) is not None
+    _type = _type if is_typing_hint else schema
+    schema_args = list(get_args(schema)) if is_typing_hint else [] if _type is list else [schema]
     schema_len = len(schema_args)
     property_type = schema_args[0] if schema_args else None
 
@@ -209,12 +209,16 @@ A number of errors happen:
         if _type and property_value is not None and not isinstance(property_value, _type)\
         else property_value
 
-  def __deserialize(self, d: Dict):
+  def __deserialize(self, d: dict):
     self.__error__ = []
     clazz: type = self.__class__
     exclude_types = (FunctionType, property, classmethod, staticmethod)
-    properties = {k: v for k, v in clazz.__dict__.items()
-                  if not k.startswith("__") and k not in self.__ignored_fields__ and not isinstance(v, exclude_types)}
+    properties = {
+      k: v for k, v in clazz.__dict__.items()
+      if not k.startswith("__")
+      and k not in self.__ignored_fields__
+      and not isinstance(v, exclude_types)
+    }
     annotations = get_type_hints(clazz)
 
     for property_name, schema in annotations.items():
@@ -253,34 +257,32 @@ A number of errors happen:
   def __serialize_transform(self, item, minimal: bool = False):
     if item is None:
       return None
-
-    _type = type(item)
-
-    if _type is list:
-      return [self.__serialize_transform(i) for i in item]
-    elif _type is dict:
+    elif isinstance(item, SerializableObject) or issubclass(type(item), SerializableObject):
+      return item.serialize(minimal=minimal)
+    elif isinstance(item, (list, tuple, set)):
+      return [self.__serialize_transform(i, minimal=minimal) for i in item]
+    elif isinstance(item, dict):
       r_obj = {}
       for k, v in list(item.items()):
         if minimal and not v:
           continue
-        r_obj[k] = self.__serialize_transform(v)
+        r_obj[k] = self.__serialize_transform(v, minimal=minimal)
       return r_obj
-    else:
-      return self.__serialize_transform(item.serialize(minimal=minimal)) \
-             if issubclass(_type, SerializableObject)\
-             else _type(item)
 
-  def serialize(self, minimal: bool = False) -> Dict:
-    # first of all we need to move defaults from class
-    all_properties = dict(self.__class__.__dict__)
-    all_properties.update(dict(self.__dict__))
+    return item
+
+  def serialize(self, minimal: bool = False) -> dict:
+    all_properties = dict(self.__class__.__dict__)      # first of all we need to move defaults from class
+    all_properties.update(dict(self.__dict__))          # now copy over existing properties from the object
     _filter_properties = list(self.__mapping__.keys()) + list(self.__grouping__.keys())
 
-    properties: Dict = {k: v for k, v in all_properties.items()
+    properties: dict = {k: v for k, v in all_properties.items()
                         if not k.startswith("__")                                     # filter hidden properties
                         and not (k.startswith("_") and "__" in k)                     # filter _Obj__property entities
                         and k not in self.__ignored_fields__                          # filter ignored property
-                        and not isinstance(v, (FunctionType, property, classmethod))  # ignore functions
+                        and not isinstance(v, (FunctionType, MethodType,
+                                               BuiltinMethodType,
+                                               property, classmethod))                # ignore functions
                         and k not in _filter_properties                               # exclude "special cases"
                         }
 
