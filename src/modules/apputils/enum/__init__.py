@@ -16,6 +16,7 @@
 #  Github: https://github.com/hapylestat/apputils
 #
 #
+
 from enum import Enum
 
 

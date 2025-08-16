@@ -123,7 +123,7 @@ class SerializableObject(object):
   """
   __file_type__: SODumpType = SODumpType.JSON
 
-  def __init__(self, serialized_obj: str|dict|object|None= None, **kwargs):
+  def __init__(self, serialized_obj: str|dict|object|None = None, **kwargs):
     self.__error__ = []
 
     if isinstance(serialized_obj, type(self)):
