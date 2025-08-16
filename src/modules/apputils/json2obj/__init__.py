@@ -17,7 +17,7 @@
 #
 #
 
-from types import FunctionType, MethodType, BuiltinMethodType
+from types import FunctionType, MethodType, BuiltinMethodType, UnionType
 from typing import get_type_hints, get_args
 
 import enum
@@ -179,7 +179,7 @@ A number of errors happen:
   def __deserialize_transform(self, property_value, schema):
     is_typing_hint = (_type := getattr(schema, "__origin__", None)) is not None
     _type = _type if is_typing_hint else schema
-    schema_args = list(get_args(schema)) if is_typing_hint else [] if _type is list else [schema]
+    schema_args = list(get_args(schema)) if is_typing_hint or isinstance(schema, UnionType) else [] if _type is list else [schema]
     schema_len = len(schema_args)
     property_type = schema_args[0] if schema_args else None
 
@@ -192,7 +192,7 @@ A number of errors happen:
       self.__error__.append(
         "Conflicting type in schema and data for object '{}', expecting '{}' but got '{}' (value: {})".format(
           self.__class__.__name__,
-          property_type.__name__,
+          " | ".join([ t.__name__ for t in schema_args]) if isinstance(schema, UnionType) else property_type.__name__,
           type(property_value).__name__,
           property_value
         ))

@@ -26,7 +26,7 @@ class TestObject(SerializableObject):
   data: Dict[str, str] = {}
   data1: dict[str, str] = {}
   listtest: list[list[int]] = []
-  test: str = ""
+  test: str | int | float = ""
 
 
 test_json = """
@@ -55,6 +55,7 @@ listtest:
     - 3
   - - 4
     - 5
+test: 5.9
 """
 
 test_obj = {
