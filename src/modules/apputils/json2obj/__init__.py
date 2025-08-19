@@ -186,7 +186,9 @@ A number of errors happen:
     if property_type in (int, float, complex) and isinstance(property_value, str) and property_value == "":
       property_value = 0  # this is really weird fix for bad written API
 
-    if property_type and property_value is not None and not isinstance(property_value, _type) \
+    if property_type and property_value is not None \
+      and not isinstance(property_value, _type) \
+      and not (issubclass(_type, enum.Enum) and '_value2member_map_' in _type.__dict__) \
       and not (issubclass(property_type, SerializableObject) and isinstance(property_value, dict)):
 
       self.__error__.append(
@@ -199,6 +201,13 @@ A number of errors happen:
       return None
 
     if property_value is None:
+      return None
+    elif not isinstance(_type, UnionType) and issubclass(_type, enum.Enum):
+      if (_map := _type.__dict__['_value2member_map_']) and property_value in _map:
+        return _map[property_value]
+      self.__error__.append("Enum type '{}' doesn't contain option value '{}'".format(
+        _type.__name__, property_value)
+      )
       return None
     elif _type is list:
       return [property_type(i) for i in property_value] if property_type else property_value
@@ -261,6 +270,8 @@ A number of errors happen:
       return item.serialize(minimal=minimal)
     elif isinstance(item, (list, tuple, set)):
       return [self.__serialize_transform(i, minimal=minimal) for i in item]
+    elif issubclass(item.__class__, enum.Enum):
+      return self.__serialize_transform(item.value, minimal=minimal)
     elif isinstance(item, dict):
       r_obj = {}
       for k, v in list(item.items()):

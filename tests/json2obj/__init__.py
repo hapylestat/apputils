@@ -16,58 +16,38 @@
 #  Github: https://github.com/hapylestat/apputils
 #
 #
-from typing import Dict
+from enum import Enum
 
 
 from apputils.json2obj import SerializableObject
 
 
+class TestEnum(Enum):
+  TEST1 = 0
+  TEST2 = 1
+  TEST3 = 2
+
+
 class TestObject(SerializableObject):
-  data: Dict[str, str] = {}
-  data1: dict[str, str] = {}
-  listtest: list[list[int]] = []
+  tt: TestEnum = TestEnum.TEST1
   test: str | int | float = ""
 
 
 test_json = """
 {
-  "data": {
-    "f1": "v1",
-    "f2": "v2"
-  },
-  "data1": {
-    "f1": "v1",
-    "f2": ""
-  },
-  "listtest": ["v1", "v2"]
+  "test": 5.9,
+  "tt": 1,
 }
 """
 
 test_yaml = """
-data:
-  f1: v1
-  f2: v2
-data1:
-  f1: v1
-listtest:
-  - - 1
-    - 2
-    - 3
-  - - 4
-    - 5
 test: 5.9
+tt: 1
 """
-
-test_obj = {
-  "data": {
-    "f1": "v1",
-    "f2": ""
-  }
-}
 
 
 def main():
-  obj = TestObject(test_yaml)
+  obj = TestObject(test_json)
   a = obj.serialize()
   print("===================================")
   print(a)
