@@ -176,7 +176,7 @@ A number of errors happen:
 - {end_line.join(self.__error__)}
 """)
 
-  def __deserialize_transform(self, property_value, schema):
+  def __deserialize_transform(self, property_value, schema, supress_error: bool = False):
     is_typing_hint = (_type := getattr(schema, "__origin__", None)) is not None
     _type = _type if is_typing_hint else schema
     schema_args = list(get_args(schema)) if is_typing_hint or isinstance(schema, UnionType) else [] if _type is list else [schema]
@@ -188,16 +188,18 @@ A number of errors happen:
 
     if property_type and property_value is not None \
       and not isinstance(property_value, _type) \
+      and not isinstance(_type, UnionType) \
       and not (issubclass(_type, enum.Enum) and '_value2member_map_' in _type.__dict__) \
       and not (issubclass(property_type, SerializableObject) and isinstance(property_value, dict)):
 
-      self.__error__.append(
-        "Conflicting type in schema and data for object '{}', expecting '{}' but got '{}' (value: {})".format(
-          self.__class__.__name__,
-          " | ".join([ t.__name__ for t in schema_args]) if isinstance(schema, UnionType) else property_type.__name__,
-          type(property_value).__name__,
-          property_value
-        ))
+      if not supress_error:
+        self.__error__.append(
+          "Conflicting type in schema and data for object '{}', expecting '{}' but got '{}' (value: {})".format(
+            self.__class__.__name__,
+            " | ".join([ t.__name__ for t in schema_args]) if isinstance(schema, UnionType) else property_type.__name__,
+            type(property_value).__name__,
+            property_value
+          ))
       return None
 
     if property_value is None:
@@ -213,6 +215,12 @@ A number of errors happen:
       return [property_type(i) for i in property_value] if property_type else property_value
     elif _type is dict:
       return {k: self.__deserialize_transform(v, schema_args[1] if schema_len == 2 else type(v)) for k, v in property_value.items()}
+    elif isinstance(_type, UnionType):   # handle definitions like a: [int|str|MyObj] = 5
+      for t in get_args(_type):
+        if (__v := self.__deserialize_transform(property_value, t, supress_error=True)) is not None:
+          return __v
+      self.__error__.append("Cannot resolve Union type '{}' for value '{}'".format(_type, property_value))
+      return None
     else:
       return _type(property_value) \
         if _type and property_value is not None and not isinstance(property_value, _type)\

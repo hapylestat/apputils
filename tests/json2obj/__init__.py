@@ -18,7 +18,6 @@
 #
 from enum import Enum
 
-
 from apputils.json2obj import SerializableObject
 
 
