@@ -16,9 +16,10 @@
 #  Github: https://github.com/hapylestat/apputils
 #
 #
-
+from functools import reduce
 from types import FunctionType, MethodType, BuiltinMethodType, UnionType
 from typing import get_type_hints, get_args
+from .transformations import transformations
 
 import enum
 import json
@@ -123,7 +124,7 @@ class SerializableObject(object):
   """
   __file_type__: SODumpType = SODumpType.JSON
 
-  def __init__(self, serialized_obj: str|dict|object|None = None, **kwargs):
+  def __init__(self, serialized_obj: "str|dict|SerializableObject|type[SerializableObject]|None" = None, **kwargs):
     self.__error__ = []
 
     if isinstance(serialized_obj, type(self)):
@@ -183,13 +184,10 @@ A number of errors happen:
     schema_len = len(schema_args)
     property_type = schema_args[0] if schema_args else None
 
-    if property_type in (int, float, complex) and isinstance(property_value, str) and property_value == "":
-      property_value = 0  # this is really weird fix for bad written API
-
     if property_type and property_value is not None \
       and not isinstance(property_value, _type) \
       and not isinstance(_type, UnionType) \
-      and not (issubclass(_type, enum.Enum) and '_value2member_map_' in _type.__dict__) \
+      and not reduce(lambda x, y: x or y.deserialize_condition(_type, property_value), transformations.items, False) \
       and not (issubclass(property_type, SerializableObject) and isinstance(property_value, dict)):
 
       if not supress_error:
@@ -202,29 +200,27 @@ A number of errors happen:
           ))
       return None
 
-    if property_value is None:
-      return None
-    elif not isinstance(_type, UnionType) and issubclass(_type, enum.Enum):
-      if (_map := _type.__dict__['_value2member_map_']) and property_value in _map:
-        return _map[property_value]
-      self.__error__.append("Enum type '{}' doesn't contain option value '{}'".format(
-        _type.__name__, property_value)
-      )
-      return None
-    elif _type is list:
-      return [property_type(i) for i in property_value] if property_type else property_value
-    elif _type is dict:
-      return {k: self.__deserialize_transform(v, schema_args[1] if schema_len == 2 else type(v)) for k, v in property_value.items()}
-    elif isinstance(_type, UnionType):   # handle definitions like a: [int|str|MyObj] = 5
-      for t in get_args(_type):
-        if (__v := self.__deserialize_transform(property_value, t, supress_error=True)) is not None:
-          return __v
-      self.__error__.append("Cannot resolve Union type '{}' for value '{}'".format(_type, property_value))
-      return None
-    else:
-      return _type(property_value) \
-        if _type and property_value is not None and not isinstance(property_value, _type)\
-        else property_value
+    try:
+      if property_value is None:
+        return None
+      elif _type is list:
+        return [property_type(i) for i in property_value] if property_type else property_value
+      elif _type is dict:
+        return {k: self.__deserialize_transform(v, schema_args[1] if schema_len == 2 else type(v)) for k, v in property_value.items()}
+      elif isinstance(_type, UnionType):   # handle definitions like a: [int|str|MyObj] = 5
+        for t in get_args(_type):
+          if (__v := self.__deserialize_transform(property_value, t, supress_error=True)) is not None:
+            return __v
+        self.__error__.append("Cannot resolve Union type '{}' for value '{}'".format(_type, property_value))
+        return None
+      elif (r := transformations.deserialize(_type, property_value)) is not None:
+        return r
+      else:
+        return _type(property_value) \
+          if _type and property_value is not None and not isinstance(property_value, _type)\
+          else property_value
+    except ValueError as v:
+      self.__error__.append(str(v))
 
   def __deserialize(self, d: dict):
     self.__error__ = []
@@ -278,8 +274,10 @@ A number of errors happen:
       return item.serialize(minimal=minimal)
     elif isinstance(item, (list, tuple, set)):
       return [self.__serialize_transform(i, minimal=minimal) for i in item]
-    elif issubclass(item.__class__, enum.Enum):
-      return self.__serialize_transform(item.value, minimal=minimal)
+    elif (r := transformations.serialize(item)) is not None:
+      if transformations.need_chain_serialize(item):
+        return self.__serialize_transform(r, minimal=minimal)
+      return r
     elif isinstance(item, dict):
       r_obj = {}
       for k, v in list(item.items()):

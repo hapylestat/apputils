@@ -17,6 +17,7 @@
 #
 #
 from enum import Enum
+from datetime import datetime, timezone
 
 from apputils.json2obj import SerializableObject
 
@@ -24,30 +25,34 @@ from apputils.json2obj import SerializableObject
 class TestEnum(Enum):
   TEST1 = 0
   TEST2 = 1
-  TEST3 = 2
+  TEST3 = "dad"
 
 
 class TestObject(SerializableObject):
   tt: TestEnum = TestEnum.TEST1
   test: str | int | float = ""
+  creation_time: datetime = None
 
 
 test_json = """
 {
   "test": 5.9,
   "tt": 1,
+  "creation_time": 1765361826.792195
 }
 """
 
 test_yaml = """
-test: 5.9
+test: 5
 tt: 1
+creation_time: 1765361826.792195
 """
 
 
 def main():
-  obj = TestObject(test_json)
+  obj = TestObject(test_yaml)
   a = obj.serialize()
+
   print("===================================")
   print(a)
   print('------------------------------------')
