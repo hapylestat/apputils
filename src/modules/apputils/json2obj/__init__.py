@@ -17,9 +17,29 @@
 #
 #
 from functools import reduce
-from types import FunctionType, MethodType, BuiltinMethodType, UnionType
-from typing import get_type_hints, get_args
+from types import FunctionType, MethodType, BuiltinMethodType
+from typing import get_type_hints, get_args, Union
 from .transformations import transformations
+
+try:
+  from types import UnionType as _NativeUnionType  # Python 3.10+
+except ImportError:
+  _NativeUnionType = None
+
+
+def _is_union(tp) -> bool:
+  if _NativeUnionType is not None and isinstance(tp, _NativeUnionType):
+    return True
+  return getattr(tp, "__origin__", None) is Union
+
+
+def _get_union_args(tp) -> tuple:
+  """Return the type arguments of a union, for both types.UnionType and typing.Union."""
+  args = get_args(tp)
+  if args:
+    return args
+  # Fallback for types.UnionType on some Python versions
+  return getattr(tp, "__args__", ()) or ()
 
 import enum
 import json
@@ -180,13 +200,16 @@ A number of errors happen:
   def __deserialize_transform(self, property_value, schema, supress_error: bool = False):
     is_typing_hint = (_type := getattr(schema, "__origin__", None)) is not None
     _type = _type if is_typing_hint else schema
-    schema_args = list(get_args(schema)) if is_typing_hint or isinstance(schema, UnionType) else [] if _type is list else [schema]
+    # For both typing.Union[X,Y] (origin=Union) and native X|Y, treat _type as the union schema itself
+    if _type is Union or _is_union(schema):
+      _type = schema
+    schema_args = list(get_args(schema)) if is_typing_hint or _is_union(schema) else [] if _type is list else [schema]
     schema_len = len(schema_args)
     property_type = schema_args[0] if schema_args else None
 
     if property_type and property_value is not None \
       and not isinstance(property_value, _type) \
-      and not isinstance(_type, UnionType) \
+      and not _is_union(_type) \
       and not reduce(lambda x, y: x or y.deserialize_condition(_type, property_value), transformations.items, False) \
       and not (issubclass(property_type, SerializableObject) and isinstance(property_value, dict)):
 
@@ -194,7 +217,7 @@ A number of errors happen:
         self.__error__.append(
           "Conflicting type in schema and data for object '{}', expecting '{}' but got '{}' (value: {})".format(
             self.__class__.__name__,
-            " | ".join([ t.__name__ for t in schema_args]) if isinstance(schema, UnionType) else property_type.__name__,
+            " | ".join([ t.__name__ for t in schema_args]) if _is_union(schema) else property_type.__name__,
             type(property_value).__name__,
             property_value
           ))
@@ -207,8 +230,8 @@ A number of errors happen:
         return [property_type(i) for i in property_value] if property_type else property_value
       elif _type is dict:
         return {k: self.__deserialize_transform(v, schema_args[1] if schema_len == 2 else type(v)) for k, v in property_value.items()}
-      elif isinstance(_type, UnionType):   # handle definitions like a: [int|str|MyObj] = 5
-        for t in get_args(_type):
+      elif _is_union(_type):   # handle definitions like a: [int|str|MyObj] = 5 or Union[int, str, MyObj]
+        for t in _get_union_args(_type):
           if (__v := self.__deserialize_transform(property_value, t, supress_error=True)) is not None:
             return __v
         self.__error__.append("Cannot resolve Union type '{}' for value '{}'".format(_type, property_value))
@@ -246,7 +269,7 @@ A number of errors happen:
         resolved_prop = property_name
 
       if resolved_prop not in d:  # Property didn't come with data, setting default value
-        self.__setattr__(property_name, properties[property_name])
+        self.__setattr__(property_name, properties.get(property_name, None))
         continue
 
       property_value = d[resolved_prop]
